@@ -1,0 +1,24 @@
+[package]
+name = "kanon-cli"
+description = "Command line wrapper that generates the Kanon corpus and verifies vectors."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "kanon"
+path = "src/main.rs"
+
+[dependencies]
+kanon-core = { path = "../kanon-core" }
+kanon-gen = { path = "../kanon-gen" }
+anyhow.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+jsonschema.workspace = true
+
+[lints]
+workspace = true
