@@ -83,18 +83,11 @@ x402 v2 payload, is:
 
 Pinned details that the generator MUST follow and the verifier MUST read:
 
-- The requirements object is keyed **`accepted`** and lives inside `input`. There is no
-  separate `payment_requirements` field, and the requirements are not stored twice.
+- The requirements object is keyed **`accepted`** and lives inside `input`. There is no separate `payment_requirements` field, and the requirements are not stored twice.
 - The required amount field is named **`amount`** (a decimal string), not `maxAmountRequired`.
-- The `accepted` object carries its own `network`, `asset`, `payTo`, `maxTimeoutSeconds`, and
-  `extra` (`name`, `version`). The EIP-712 domain is derived from `accepted`: `chainId` from
-  `accepted.network`, `verifyingContract` from `accepted.asset`, `name`/`version` from
-  `accepted.extra`.
-- The signed authorization fields (`from`, `to`, `value`, `validAfter`, `validBefore`,
-  `nonce`) live under `input.payload.authorization`; the signature is `input.payload.signature`.
-- These are x402's own field names. This document does not redefine them; it pins which ones
-  the corpus relies on so the generator and verifier agree. If the live x402 v2 schema changes
-  a name, update this section and `schema_version` together.
+- The `accepted` object carries its own `network`, `asset`, `payTo`, `maxTimeoutSeconds`, and `extra` (`name`, `version`). The EIP-712 domain is derived from `accepted`: `chainId` from `accepted.network`, `verifyingContract` from `accepted.asset`, `name`/`version` from `accepted.extra`.
+- The signed authorization fields (`from`, `to`, `value`, `validAfter`, `validBefore`, `nonce`) live under `input.payload.authorization`; the signature is `input.payload signature`.
+- These are x402's own field names. This document does not redefine them; it pins which ones the corpus relies on so the generator and verifier agree. If the live x402 v2 schem changes a name, update this section and `schema_version` together.
 
 ### Annotated example (negative vector)
 
@@ -145,21 +138,14 @@ Pinned details that the generator MUST follow and the verifier MUST read:
 A verdict is the pair `(valid, reason_code)`. It is never just a boolean.
 
 1. If `valid` is `true`, `reason_code` MUST be `VALID`.
-2. If `valid` is `false`, `reason_code` MUST be a specific non-`VALID` code from the
-   registry (section 4).
-3. **Correct for the right reason.** A verifier that rejects a negative vector with the
-   wrong reason code has failed that vector, exactly as much as if it had accepted the
-   mandate. Returning the right boolean for the wrong reason is a failure, not a partial
-   pass. The reason code is part of the verdict, not a diagnostic afterthought.
-4. **Single-fault isolation.** Every negative vector exhibits exactly one defect, so its
-   verdict is unambiguous. Vectors do not combine multiple independent faults. If a scenario
-   has two faults, it is split into two vectors.
+2. If `valid` is `false`, `reason_code` MUST be a specific non-`VALID` code from the registry (section 4).
+3. **Correct for the right reason.** A verifier that rejects a negative vector with the wrong reason code has failed that vector, exactly as much as if it had accepted the mandate. Returning the right boolean for the wrong reason is a failure, not a partial pass. The reason code is part of the verdict, not a diagnostic afterthought.
+4. **Single-fault isolation.** Every negative vector exhibits exactly one defect, so its verdict is unambiguous. Vectors do not combine multiple independent faults. If a scenario has two faults, it is split into two vectors.
 
 ### Normative check order
 
 So that the reason code is deterministic even for an input that happens to violate more than
-one rule, a conformant verifier MUST evaluate checks in this order and return the reason code
-of the **first** check that fails. If no check fails, the verdict is `VALID`.
+one rule, a conformant verifier MUST evaluate checks in this order and return the reason code of the **first** check that fails. If no check fails, the verdict is `VALID`.
 
 1. `NETWORK_MISMATCH`
 2. `SIG_MALLEABLE`
@@ -170,21 +156,13 @@ of the **first** check that fails. If no check fails, the verdict is `VALID`.
 7. `AMOUNT_INSUFFICIENT`
 8. `VALID`
 
-Rationale for the order: cheap structural comparisons against the requirements come first;
-signature-encoding validity (malleability) is checked before recovery because it is a
-property of the signature bytes; recovery establishes authenticity; temporal and replay
-checks follow; the amount-sufficiency check runs last because it is only meaningful once the
-signature is known authentic. Because corpus vectors isolate a single fault, this order only
-disambiguates adversarial multi-fault inputs, but it is normative so that all verifiers agree.
+Rationale for the order: cheap structural comparisons against the requirements come first; signature-encoding validity (malleability) is checked before recovery because it is a property of the signature bytes; recovery establishes authenticity; temporal and replay checks follow; the amount-sufficiency check runs last because it is only meaningful once the signature is known authentic. Because corpus vectors isolate a single fault, this order only disambiguates adversarial multi-fault inputs, but it is normative so that all verifiers agree.
 
 ---
 
 ## 4. Reason codes (registry v2.0.0)
 
-`schema/reason-codes.md` is the authoritative, versioned registry. The list below defines the
-v2 codes and, critically, what makes each one **detectable by a stateless verifier**. Reason
-codes are a stable interface; adding, removing, or redefining a code is a breaking change and
-requires a registry version bump.
+`schema/reason-codes.md` is the authoritative, versioned registry. The list below defines the v2 codes and, critically, what makes each one **detectable by a stateless verifier**. Reason codes are a stable interface; adding, removing, or redefining a code is a breaking change and requires a registry version bump.
 
 | Code                  | Detectable because                                                                                                                                                                                                   | Notes                                                                                                                                                                                                                                                    |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -197,23 +175,13 @@ requires a registry version bump.
 | `NONCE_REPLAY`        | `authorization.nonce` is present in `context.seen_nonces`.                                                                                                                                                           | Requires `context.seen_nonces`. Models a nonce already consumed or settled.                                                                                                                                                                              |
 | `AMOUNT_INSUFFICIENT` | The signature is valid and recovers correctly, but `input.payload.authorization.value` is less than `input.accepted.amount`.                                                                                         | Distinct from tampering: the mandate is authentic, it just underpays. A validly signed underpayment, not a forged amount (forging the amount breaks the signature and yields `SIGNER_MISMATCH`).                                                         |
 
-Note on the domain codes we previously sketched: `DOMAIN_CHAINID_MISMATCH`,
-`DOMAIN_CONTRACT_MISMATCH`, and `ASSET_MISMATCH` are intentionally absent. A conformant verifier
-cannot return them as distinct from a generic recovery failure, because EIP-712 binds chainId and
-the verifying contract into the same digest as every other signed field, and the requirements
-carried inside `input.accepted` give no independent second asset to compare against
-`input.accepted.asset`. Demanding them as expected reason codes would cause correct verifiers to
-fail the corpus. The attacks they named (cross-chain replay, cross-contract or wrong
-`verifyingContract`, signed-field tampering) are preserved in the `encodes` field of the relevant
-`SIGNER_MISMATCH` vectors.
+Note on the domain codes we previously sketched: `DOMAIN_CHAINID_MISMATCH`, `DOMAIN_CONTRACT_MISMATCH`, and `ASSET_MISMATCH` are intentionally absent. A conformant verifier cannot return them as distinct from a generic recovery failure, because EIP-712 binds chainId and the verifying contract into the same digest as every other signed field, and the requirements carried inside `input.accepted` give no independent second asset to compare against `input.accepted.asset`. Demanding them as expected reason codes would cause correct verifiers to fail the corpus. The attacks they named (cross-chain replay, cross-contract or wrong `verifyingContract`, signed-field tampering) are preserved in the `encodes` field of the relevant `SIGNER_MISMATCH` vectors.
 
 ---
 
 ## 5. The `context` block: a stateless verifier with injected state
 
-The reference verifier is **stateless and offline**. It reaches no network, holds no clock of
-its own, and queries no chain. Any state a check needs is injected by the vector through
-`context`, so every verdict is deterministic and reproducible.
+The reference verifier is **stateless and offline**. It reaches no network, holds no clock of its own, and queries no chain. Any state a check needs is injected by the vector through `context`, so every verdict is deterministic and reproducible.
 
 | Field               | Type                   | Meaning                                                                             | Default if absent                                                                                                                            |
 | ------------------- | ---------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -226,38 +194,26 @@ temporal and replay verdicts reproducible rather than dependent on when the veri
 
 ### Out of scope: on-chain and environmental state
 
-The corpus deliberately does **not** test checks that depend on non-deterministic, environment-
-specific state, because they cannot be encoded as a frozen, reproducible vector. Specifically
-out of scope for v1:
+The corpus deliberately does **not** test checks that depend on non-deterministic, environment-specific state, because they cannot be encoded as a frozen, reproducible vector. Specifically out of scope for v1:
 
 - on-chain token balance of the payer,
 - Permit2 or ERC-20 allowance state,
 - settlement simulation against a live node,
 - gas and fee conditions.
 
-`AMOUNT_INSUFFICIENT` is therefore about the **signed value versus the required amount**, both
-of which are in the mandate and the requirements and are fully deterministic. It is not about
-wallet balance. The corpus tests the cryptographic and structural validity of the mandate, not
-the state of the world at settlement time.
+`AMOUNT_INSUFFICIENT` is therefore about the **signed value versus the required amount**, both of which are in the mandate and the requirements and are fully deterministic. It is not about wallet balance. The corpus tests the cryptographic and structural validity of the mandate, not the state of the world at settlement time.
 
 ---
 
 ## 6. Encoding and determinism rules
 
-These exist so that vectors are reproducible byte-for-byte from source and survive JSON
-round-trips without precision loss.
+These exist so that vectors are reproducible byte-for-byte from source and survive JSON round-trips without precision loss.
 
-- **No floating point anywhere.** All integers that can exceed 2^53 (token `value`, any
-  uint256) are JSON strings, not numbers.
-- **Hex conventions.** Addresses, signatures, and `nonce` (a 32-byte value) are `0x`-prefixed
-  hex strings. Addresses are stored checksummed but compared case-insensitively.
-- **Timestamps** (`verification_time`, `validAfter`, `validBefore`) are unix seconds; vector-
-  level timestamps may be strings inside the x402 objects to match the wire format, and
-  `context.verification_time` is a JSON integer.
-- **Stable ids.** `id` is assigned once and never changed; a corrected vector gets a new id
-  rather than a silent edit, so references remain stable.
-- **Reproducible from source.** Every vector is regenerable by the generator from committed
-  test keys. Hand-edited signatures are not permitted.
+- **No floating point anywhere.** All integers that can exceed 2^53 (token `value`, any uint256) are JSON strings, not numbers.
+- **Hex conventions.** Addresses, signatures, and `nonce` (a 32-byte value) are `0x`-prefixed hex strings. Addresses are stored checksummed but compared case-insensitively.
+- **Timestamps** (`verification_time`, `validAfter`, `validBefore`) are unix seconds; vector-level timestamps may be strings inside the x402 objects to match the wire format, and `context.verification_time` is a JSON integer.
+- **Stable ids.** `id` is assigned once and never changed; a corrected vector gets a new id rather than a silent edit, so references remain stable.
+- **Reproducible from source.** Every vector is regenerable by the generator from committed test keys. Hand-edited signatures are not permitted.
 
 ---
 
@@ -265,21 +221,16 @@ round-trips without precision loss.
 
 Two version numbers, kept separate:
 
-- `schema_version` on each vector: the vector **format**. A change that would invalidate
-  existing vectors (renaming or removing a field, changing a type) is a major bump.
-- the **reason-code registry** version in `schema/reason-codes.md`: the verdict vocabulary.
-  Adding, removing, or redefining a reason code is a breaking change and a registry version
-  bump. The normative check order is part of this contract; reordering it is breaking.
+- `schema_version` on each vector: the vector **format**. A change that would invalidate existing vectors (renaming or removing a field, changing a type) is a major bump.
+- the **reason-code registry** version in `schema/reason-codes.md`: the verdict vocabulary. Adding, removing, or redefining a reason code is a breaking change and a registry version bump. The normative check order is part of this contract; reordering it is breaking.
 
-A verifier states which `schema_version` range and which reason-code registry version it
-implements. Conformance is always stated against specific versions of both.
+A verifier states which `schema_version` range and which reason-code registry version it implements. Conformance is always stated against specific versions of both.
 
 ---
 
 ## 8. What this document deliberately does not cover
 
-To keep the contract small, the following are explicitly out of scope for v1
-and are added later only when a real need arrives, each as its own scoped extension:
+To keep the contract small, the following are explicitly out of scope for v1 and are added later only when a real need arrives, each as its own scoped extension:
 
 - x402 `exact` on EVM via Permit2 or ERC-7710,
 - x402 `exact` on SVM,
