@@ -3,6 +3,9 @@
 //! These mirror the vector schema and serialize to the exact JSON the corpus stores. They are a
 //! separate copy from the verifier's deserialize models on purpose, the two crates meet only at
 //! the JSON. Field order follows declaration order, which keeps output byte stable.
+//!
+//! `input` holds the verbatim decoded x402 v2 payment object. The requirements travel inside it
+//! as `accepted`, exactly as on the wire. There is no separate requirements field.
 
 use serde::Serialize;
 
@@ -17,7 +20,7 @@ pub struct Vector {
     pub protocol: String,
     /// The x402 scheme under test.
     pub scheme: String,
-    /// CAIP-2 target network.
+    /// CAIP-2 target network, the chain the verifier treats as the target.
     pub network: String,
     /// The asset transfer method under test.
     pub asset_transfer_method: String,
@@ -27,10 +30,8 @@ pub struct Vector {
     pub provenance: Vec<String>,
     /// One or two sentences describing the input and the verdict.
     pub description: String,
-    /// The server's demand.
-    pub payment_requirements: PaymentRequirements,
-    /// The mandate under test.
-    pub input: PaymentPayload,
+    /// The verbatim decoded x402 v2 payment object, carrying both payload and accepted.
+    pub input: PaymentObject,
     /// Injected verification state. Omitted when empty.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<Context>,
@@ -38,62 +39,27 @@ pub struct Vector {
     pub expected: Expected,
 }
 
-/// An x402 v2 `PaymentRequirements` object.
+/// The decoded x402 v2 payment object stored under `input`.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PaymentRequirements {
-    /// The scheme.
-    pub scheme: String,
-    /// The CAIP-2 network.
-    pub network: String,
-    /// The minimum amount required, as a base ten string.
-    pub max_amount_required: String,
-    /// The protected resource URL.
-    pub resource: String,
-    /// A human readable description of the resource.
-    pub description: String,
-    /// The response MIME type.
-    pub mime_type: String,
-    /// The recipient address.
-    pub pay_to: String,
-    /// The maximum settlement timeout in seconds.
-    pub max_timeout_seconds: u32,
-    /// The required token contract address.
-    pub asset: String,
-    /// The EIP-712 domain name and version for the token.
-    pub extra: Extra,
-}
-
-/// The EIP-712 domain hints carried in the requirements extra field.
-#[derive(Debug, Clone, Serialize)]
-pub struct Extra {
-    /// The EIP-712 domain name.
-    pub name: String,
-    /// The EIP-712 domain version.
-    pub version: String,
-}
-
-/// An x402 v2 `PaymentPayload` object.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PaymentPayload {
+pub struct PaymentObject {
     /// The x402 protocol version.
     pub x402_version: u8,
-    /// The scheme.
-    pub scheme: String,
-    /// The declared network.
-    pub network: String,
-    /// The exact scheme payload.
+    /// The submitted authorization and signature.
     pub payload: ExactPayload,
+    /// The protected resource the payment is for.
+    pub resource: Resource,
+    /// The requirements the client accepted.
+    pub accepted: Accepted,
 }
 
-/// The inner payload of the exact scheme.
+/// The submitted payload of the exact scheme, authorization then signature, as on the wire.
 #[derive(Debug, Clone, Serialize)]
 pub struct ExactPayload {
-    /// The `0x` prefixed 65 byte signature.
-    pub signature: String,
     /// The signed EIP-3009 authorization.
     pub authorization: Authorization,
+    /// The `0x` prefixed 65 byte signature.
+    pub signature: String,
 }
 
 /// An EIP-3009 authorization.
@@ -112,6 +78,47 @@ pub struct Authorization {
     pub valid_before: String,
     /// The 32 byte replay protection nonce, `0x` prefixed.
     pub nonce: String,
+}
+
+/// The protected resource description from the decoded payment object.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Resource {
+    /// The resource URL.
+    pub url: String,
+    /// A human readable description of the resource.
+    pub description: String,
+    /// The response MIME type.
+    pub mime_type: String,
+}
+
+/// The requirements the client accepted, carried inside the decoded payment object.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Accepted {
+    /// The scheme.
+    pub scheme: String,
+    /// The CAIP-2 network.
+    pub network: String,
+    /// The required amount, as a base ten string.
+    pub amount: String,
+    /// The required token contract address.
+    pub asset: String,
+    /// The recipient address.
+    pub pay_to: String,
+    /// The maximum settlement timeout in seconds.
+    pub max_timeout_seconds: u32,
+    /// The EIP-712 domain name and version for the token.
+    pub extra: Extra,
+}
+
+/// The EIP-712 domain hints carried in the accepted extra field.
+#[derive(Debug, Clone, Serialize)]
+pub struct Extra {
+    /// The EIP-712 domain name.
+    pub name: String,
+    /// The EIP-712 domain version.
+    pub version: String,
 }
 
 /// Injected verification state.
@@ -134,7 +141,7 @@ pub struct Expected {
     pub reason_code: ReasonCode,
 }
 
-/// A verdict reason code from registry v1.0.0.
+/// A verdict reason code from the registry.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ReasonCode {

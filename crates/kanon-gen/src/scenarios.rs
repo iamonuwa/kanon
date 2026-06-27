@@ -16,8 +16,8 @@ use crate::constants::{
 use crate::eip712::{self, AuthFields, DomainFields};
 use crate::error::GenError;
 use crate::model::{
-    Authorization, Context, ExactPayload, Expected, Extra, PaymentPayload, PaymentRequirements,
-    ReasonCode, Vector,
+    Accepted, Authorization, Context, ExactPayload, Expected, Extra, PaymentObject, ReasonCode,
+    Resource, Vector,
 };
 use crate::sign::{self, flip_to_high_s, sig_to_wire};
 
@@ -150,7 +150,7 @@ fn vector(
     encodes: &str,
     provenance: &[&str],
     description: &str,
-    input: PaymentPayload,
+    input: PaymentObject,
     context: Option<Context>,
     expected: Expected,
 ) -> Vector {
@@ -164,25 +164,21 @@ fn vector(
         encodes: encodes.to_string(),
         provenance: provenance.iter().map(|s| (*s).to_string()).collect(),
         description: description.to_string(),
-        payment_requirements: requirements(),
         input,
         context,
         expected,
     }
 }
 
-/// The baseline requirements, shared by every vector.
-fn requirements() -> PaymentRequirements {
-    PaymentRequirements {
+/// The baseline accepted requirements, shared by every vector.
+fn accepted() -> Accepted {
+    Accepted {
         scheme: "exact".to_string(),
         network: NETWORK_BASE_SEPOLIA.to_string(),
-        max_amount_required: VALUE.to_string(),
-        resource: RESOURCE.to_string(),
-        description: DESCRIPTION.to_string(),
-        mime_type: MIME_TYPE.to_string(),
+        amount: VALUE.to_string(),
+        asset: ASSET_BASE_SEPOLIA_USDC.to_string(),
         pay_to: PAY_TO.to_string(),
         max_timeout_seconds: MAX_TIMEOUT_SECONDS,
-        asset: ASSET_BASE_SEPOLIA_USDC.to_string(),
         extra: Extra {
             name: TOKEN_NAME.to_string(),
             version: TOKEN_VERSION.to_string(),
@@ -190,14 +186,20 @@ fn requirements() -> PaymentRequirements {
     }
 }
 
-/// The baseline payload carrying a given wire signature.
-fn payload(signature: String, from: &str) -> PaymentPayload {
-    PaymentPayload {
+/// The baseline protected resource description.
+fn resource() -> Resource {
+    Resource {
+        url: RESOURCE.to_string(),
+        description: DESCRIPTION.to_string(),
+        mime_type: MIME_TYPE.to_string(),
+    }
+}
+
+/// The baseline decoded payment object carrying a given wire signature.
+fn payload(signature: String, from: &str) -> PaymentObject {
+    PaymentObject {
         x402_version: X402_VERSION,
-        scheme: "exact".to_string(),
-        network: NETWORK_BASE_SEPOLIA.to_string(),
         payload: ExactPayload {
-            signature,
             authorization: Authorization {
                 from: from.to_string(),
                 to: PAY_TO.to_string(),
@@ -206,7 +208,10 @@ fn payload(signature: String, from: &str) -> PaymentPayload {
                 valid_before: VALID_BEFORE.to_string(),
                 nonce: NONCE.to_string(),
             },
+            signature,
         },
+        resource: resource(),
+        accepted: accepted(),
     }
 }
 

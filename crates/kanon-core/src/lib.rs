@@ -22,7 +22,6 @@ mod tests;
 
 pub use error::VerifyError;
 pub use model::{
-    Authorization, Context, ExactPayload, Expected, Extra, PaymentPayload, PaymentRequirements,
-    ReasonCode, Vector,
+    Accepted, Authorization, Context, ExactPayload, Expected, Extra, Input, ReasonCode, Vector,
 };
 pub use verify::verify;

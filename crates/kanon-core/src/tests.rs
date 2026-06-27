@@ -10,9 +10,7 @@ use alloy_signer_local::PrivateKeySigner;
 
 use crate::crypto::SECP256K1_N;
 use crate::eip712;
-use crate::model::{
-    Authorization, Context, ExactPayload, PaymentPayload, PaymentRequirements, ReasonCode,
-};
+use crate::model::{Accepted, Authorization, Context, ExactPayload, Extra, Input, ReasonCode};
 use crate::verify::verify;
 
 const PAYER_KEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -30,12 +28,12 @@ fn signer() -> PrivateKeySigner {
     PAYER_KEY.parse().unwrap()
 }
 
-fn requirements() -> PaymentRequirements {
-    PaymentRequirements {
+fn accepted_with(asset: &str, amount: &str) -> Accepted {
+    Accepted {
         network: NETWORK.to_string(),
-        asset: ASSET.to_string(),
-        max_amount_required: VALUE.to_string(),
-        extra: crate::model::Extra {
+        asset: asset.to_string(),
+        amount: amount.to_string(),
+        extra: Extra {
             name: "USDC".to_string(),
             version: "2".to_string(),
         },
@@ -55,7 +53,6 @@ fn authorization() -> Authorization {
 
 /// Signs the baseline authorization under the given domain and returns the wire payload.
 fn signed_payload(chain_id: u64, contract: &str) -> ExactPayload {
-    let auth = authorization();
     let digest = eip712::digest(
         signer().address(),
         TO.parse::<Address>().unwrap(),
@@ -71,14 +68,15 @@ fn signed_payload(chain_id: u64, contract: &str) -> ExactPayload {
     let sig = signer().sign_hash_sync(&digest).unwrap();
     ExactPayload {
         signature: format!("0x{}", hex::encode(sig.as_bytes())),
-        authorization: auth,
+        authorization: authorization(),
     }
 }
 
-fn payload(chain_id: u64, contract: &str) -> PaymentPayload {
-    PaymentPayload {
-        network: NETWORK.to_string(),
+/// Builds an input whose accepted asset and signing contract are the baseline token.
+fn input(chain_id: u64, contract: &str) -> Input {
+    Input {
         payload: signed_payload(chain_id, contract),
+        accepted: accepted_with(ASSET, VALUE),
     }
 }
 
@@ -91,76 +89,49 @@ fn ctx_at(time: i64) -> Context {
 
 #[test]
 fn baseline_is_valid() {
-    let verdict = verify(
-        &requirements(),
-        &payload(84532, ASSET),
-        &ctx_at(INSIDE_WINDOW),
-    )
-    .unwrap();
+    let verdict = verify(NETWORK, &input(84532, ASSET), &ctx_at(INSIDE_WINDOW)).unwrap();
     assert!(verdict.valid);
     assert_eq!(verdict.reason_code, ReasonCode::Valid);
 }
 
 #[test]
-fn network_mismatch_is_first() {
-    let mut p = payload(84532, ASSET);
-    p.network = "eip155:1".to_string();
-    let verdict = verify(&requirements(), &p, &ctx_at(INSIDE_WINDOW)).unwrap();
+fn target_network_mismatch_is_first() {
+    let verdict = verify("eip155:1", &input(84532, ASSET), &ctx_at(INSIDE_WINDOW)).unwrap();
     assert!(!verdict.valid);
     assert_eq!(verdict.reason_code, ReasonCode::NetworkMismatch);
 }
 
 #[test]
 fn cross_chain_signature_is_signer_mismatch() {
-    let verdict = verify(
-        &requirements(),
-        &payload(8453, ASSET_OTHER),
-        &ctx_at(INSIDE_WINDOW),
-    )
-    .unwrap();
+    let verdict = verify(NETWORK, &input(8453, ASSET_OTHER), &ctx_at(INSIDE_WINDOW)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::SignerMismatch);
 }
 
 #[test]
 fn cross_contract_signature_is_signer_mismatch() {
-    let verdict = verify(
-        &requirements(),
-        &payload(84532, ASSET_OTHER),
-        &ctx_at(INSIDE_WINDOW),
-    )
-    .unwrap();
+    let verdict = verify(NETWORK, &input(84532, ASSET_OTHER), &ctx_at(INSIDE_WINDOW)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::SignerMismatch);
 }
 
 #[test]
 fn high_s_signature_is_malleable() {
-    let mut p = payload(84532, ASSET);
-    let sig = crate::crypto::parse_signature(&p.payload.signature).unwrap();
+    let mut i = input(84532, ASSET);
+    let sig = crate::crypto::parse_signature(&i.payload.signature).unwrap();
     let flipped = Signature::new(sig.r(), SECP256K1_N - sig.s(), !sig.v());
-    p.payload.signature = format!("0x{}", hex::encode(flipped.as_bytes()));
-    let verdict = verify(&requirements(), &p, &ctx_at(INSIDE_WINDOW)).unwrap();
+    i.payload.signature = format!("0x{}", hex::encode(flipped.as_bytes()));
+    let verdict = verify(NETWORK, &i, &ctx_at(INSIDE_WINDOW)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::SigMalleable);
 }
 
 #[test]
 fn before_window_is_not_yet_valid() {
-    let verdict = verify(
-        &requirements(),
-        &payload(84532, ASSET),
-        &ctx_at(1_740_672_000),
-    )
-    .unwrap();
+    let verdict = verify(NETWORK, &input(84532, ASSET), &ctx_at(1_740_672_000)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::NotYetValid);
 }
 
 #[test]
 fn at_valid_before_is_expired() {
-    let verdict = verify(
-        &requirements(),
-        &payload(84532, ASSET),
-        &ctx_at(1_740_672_154),
-    )
-    .unwrap();
+    let verdict = verify(NETWORK, &input(84532, ASSET), &ctx_at(1_740_672_154)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::Expired);
 }
 
@@ -170,54 +141,52 @@ fn seen_nonce_is_replay() {
         verification_time: Some(INSIDE_WINDOW),
         seen_nonces: vec![NONCE.to_string()],
     };
-    let verdict = verify(&requirements(), &payload(84532, ASSET), &ctx).unwrap();
+    let verdict = verify(NETWORK, &input(84532, ASSET), &ctx).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::NonceReplay);
 }
 
 #[test]
 fn underpayment_is_amount_insufficient() {
-    let mut req = requirements();
-    req.max_amount_required = "20000".to_string();
-    let verdict = verify(&req, &payload(84532, ASSET), &ctx_at(INSIDE_WINDOW)).unwrap();
+    let mut i = input(84532, ASSET);
+    i.accepted = accepted_with(ASSET, "20000");
+    let verdict = verify(NETWORK, &i, &ctx_at(INSIDE_WINDOW)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::AmountInsufficient);
 }
 
 #[test]
 fn absent_verification_time_does_not_fail_temporally() {
-    let ctx = Context::default();
-    let verdict = verify(&requirements(), &payload(84532, ASSET), &ctx).unwrap();
+    let verdict = verify(NETWORK, &input(84532, ASSET), &Context::default()).unwrap();
     assert!(verdict.valid);
 }
 
 #[test]
 fn malformed_input_never_panics() {
-    let req = requirements();
-    let base = payload(84532, ASSET);
+    let base = input(84532, ASSET);
 
     // Garbage signature hex.
-    let mut p = base.clone();
-    p.payload.signature = "0xnothex".to_string();
-    assert!(verify(&req, &p, &Context::default()).is_err());
+    let mut i = base.clone();
+    i.payload.signature = "0xnothex".to_string();
+    assert!(verify(NETWORK, &i, &Context::default()).is_err());
 
     // Wrong length signature.
-    let mut p = base.clone();
-    p.payload.signature = "0xdeadbeef".to_string();
-    assert!(verify(&req, &p, &Context::default()).is_err());
+    let mut i = base.clone();
+    i.payload.signature = "0xdeadbeef".to_string();
+    assert!(verify(NETWORK, &i, &Context::default()).is_err());
 
     // Bad nonce hex.
-    let mut p = base.clone();
-    p.payload.authorization.nonce = "0xzz".to_string();
-    assert!(verify(&req, &p, &Context::default()).is_err());
+    let mut i = base.clone();
+    i.payload.authorization.nonce = "0xzz".to_string();
+    assert!(verify(NETWORK, &i, &Context::default()).is_err());
 
     // Non numeric value.
-    let mut p = base.clone();
-    p.payload.authorization.value = "abc".to_string();
-    assert!(verify(&req, &p, &Context::default()).is_err());
+    let mut i = base.clone();
+    i.payload.authorization.value = "abc".to_string();
+    assert!(verify(NETWORK, &i, &Context::default()).is_err());
 
     // Negative verification time.
     let ctx = Context {
         verification_time: Some(-1),
         seen_nonces: Vec::new(),
     };
-    assert!(verify(&req, &base, &ctx).is_err());
+    assert!(verify(NETWORK, &base, &ctx).is_err());
 }

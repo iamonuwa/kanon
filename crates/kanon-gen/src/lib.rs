@@ -18,8 +18,8 @@ mod sign;
 
 pub use error::GenError;
 pub use model::{
-    Authorization, Context, ExactPayload, Expected, Extra, PaymentPayload, PaymentRequirements,
-    ReasonCode, Vector,
+    Accepted, Authorization, Context, ExactPayload, Expected, Extra, PaymentObject, ReasonCode,
+    Resource, Vector,
 };
 pub use scenarios::build_corpus;
 

@@ -8,50 +8,47 @@ use alloy_primitives::{Address, B256, U256};
 
 use crate::crypto::{is_high_s, parse_signature};
 use crate::error::VerifyError;
-use crate::model::{Context, Expected, PaymentPayload, PaymentRequirements, ReasonCode};
+use crate::model::{Context, Expected, Input, ReasonCode};
 use crate::{caip2, eip712};
 
-/// Verifies a mandate against requirements and injected context.
+/// Verifies a mandate against the target network and injected context.
 ///
+/// `network` is the verifier's target, compared against the declared `input.accepted.network`.
+/// Everything else (the EIP-712 domain, the required amount) is read from `input.accepted`.
 /// Returns the [`Expected`] verdict of the first failing check in normative order, or a valid
-/// verdict if every check passes. The check order is network, asset, signature malleability,
-/// signer recovery, not yet valid, expired, nonce replay, amount sufficiency.
+/// verdict if every check passes.
 ///
 /// # Errors
 ///
 /// Returns a [`VerifyError`] only when the input cannot be parsed at all (malformed hex, a
 /// signature of the wrong length, a non numeric field, a bad network identifier, or a negative
 /// verification time). A well formed but rejected mandate yields a verdict, not an error.
-pub fn verify(
-    req: &PaymentRequirements,
-    payload: &PaymentPayload,
-    ctx: &Context,
-) -> Result<Expected, VerifyError> {
-    // Network mismatch: a plaintext comparison before any cryptography.
-    if payload.network != req.network {
+pub fn verify(network: &str, input: &Input, ctx: &Context) -> Result<Expected, VerifyError> {
+    let accepted = &input.accepted;
+
+    // Network mismatch: the target network against the declared network, before any cryptography.
+    if network != accepted.network {
         return Ok(reject(ReasonCode::NetworkMismatch));
     }
 
-    // Asset mismatch: unreachable for eip3009. The payload carries no asset field, so there
-    // is nothing to compare against the required asset. The check is a documented no op here and
-    // becomes reachable only once a transfer method exposes a payload side asset. See SPEC.md.
-
     // Signature malleability: a property of the signature bytes, checked before recovery.
-    let signature = parse_signature(&payload.payload.signature)?;
+    let signature = parse_signature(&input.payload.signature)?;
     if is_high_s(&signature) {
         return Ok(reject(ReasonCode::SigMalleable));
     }
 
-    // Signer recovery: against the digest rebuilt from the target domain.
-    let auth = &payload.payload.authorization;
+    // Signer recovery: against the digest rebuilt from the accepted (target) domain. A wrong
+    // chainId or verifying contract changes the digest and is indistinguishable from any other
+    // domain mismatch at recovery, so it resolves here as a signer mismatch.
+    let auth = &input.payload.authorization;
     let from = parse_address(&auth.from, "authorization.from")?;
     let to = parse_address(&auth.to, "authorization.to")?;
     let value = parse_u256(&auth.value, "authorization.value")?;
     let valid_after = parse_u256(&auth.valid_after, "authorization.validAfter")?;
     let valid_before = parse_u256(&auth.valid_before, "authorization.validBefore")?;
     let nonce = parse_b256(&auth.nonce, "authorization.nonce")?;
-    let chain_id = caip2::parse_eip155(&req.network)?;
-    let verifying_contract = parse_address(&req.asset, "asset")?;
+    let chain_id = caip2::parse_eip155(&accepted.network)?;
+    let verifying_contract = parse_address(&accepted.asset, "accepted.asset")?;
 
     let digest = eip712::digest(
         from,
@@ -60,8 +57,8 @@ pub fn verify(
         valid_after,
         valid_before,
         nonce,
-        &req.extra.name,
-        &req.extra.version,
+        &accepted.extra.name,
+        &accepted.extra.version,
         chain_id,
         verifying_contract,
     );
@@ -73,9 +70,6 @@ pub fn verify(
 
     // Temporal checks: only when a verification time is injected.
     if let Some(time) = ctx.verification_time {
-        if time < 0 {
-            return Err(VerifyError::NegativeTime(time));
-        }
         let now = U256::from(u64::try_from(time).map_err(|_| VerifyError::NegativeTime(time))?);
         if now < valid_after {
             return Ok(reject(ReasonCode::NotYetValid));
@@ -96,7 +90,7 @@ pub fn verify(
     }
 
     // Amount sufficiency: meaningful only now that the signature is known authentic.
-    let required = parse_u256(&req.max_amount_required, "maxAmountRequired")?;
+    let required = parse_u256(&accepted.amount, "accepted.amount")?;
     if value < required {
         return Ok(reject(ReasonCode::AmountInsufficient));
     }

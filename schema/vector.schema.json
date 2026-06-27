@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://kanon.dev/schema/vector.schema.json",
   "title": "Kanon Test Vector",
-  "description": "One frozen input paired with the exact verdict a conformant verifier must return, plus the provenance of the rule or attack it encodes. Scoped to x402 v2, scheme exact, EVM, eip3009.",
+  "description": "One frozen input paired with the exact verdict a conformant verifier must return, plus the provenance of the rule or attack it encodes. Scoped to x402 v2, scheme exact, EVM, eip3009. Vector format version 2.0.0.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,7 +15,6 @@
     "encodes",
     "provenance",
     "description",
-    "payment_requirements",
     "input",
     "expected"
   ],
@@ -66,13 +65,63 @@
       "description": "One or two sentences: what the input is and why the verdict is what it is.",
       "minLength": 1
     },
-    "payment_requirements": {
-      "type": "object",
-      "description": "The server's demand, stored verbatim as an x402 v2 PaymentRequirements object. Field names track the live x402 v2 schema and are not redefined here."
-    },
     "input": {
       "type": "object",
-      "description": "The mandate under test, stored verbatim as an x402 v2 PaymentPayload. Field names track the live x402 v2 schema and are not redefined here."
+      "description": "The decoded x402 v2 payment object, stored verbatim. It carries the submitted payload and the accepted requirements together. Field names track the live x402 v2 schema and are not redefined here.",
+      "required": [
+        "payload",
+        "accepted"
+      ],
+      "properties": {
+        "payload": {
+          "type": "object",
+          "description": "The submitted authorization and signature.",
+          "required": [
+            "authorization",
+            "signature"
+          ],
+          "properties": {
+            "authorization": {
+              "type": "object",
+              "required": [
+                "from",
+                "to",
+                "value",
+                "validAfter",
+                "validBefore",
+                "nonce"
+              ]
+            },
+            "signature": {
+              "type": "string"
+            }
+          }
+        },
+        "accepted": {
+          "type": "object",
+          "description": "The requirements the client accepted. The EIP-712 domain derives from here: chainId from network, verifyingContract from asset, name and version from extra.",
+          "required": [
+            "network",
+            "asset",
+            "amount",
+            "extra"
+          ],
+          "properties": {
+            "network": {
+              "type": "string"
+            },
+            "asset": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "string"
+            },
+            "extra": {
+              "type": "object"
+            }
+          }
+        }
+      }
     },
     "context": {
       "type": "object",
@@ -111,7 +160,6 @@
           "enum": [
             "VALID",
             "NETWORK_MISMATCH",
-            "ASSET_MISMATCH",
             "SIG_MALLEABLE",
             "SIGNER_MISMATCH",
             "NOT_YET_VALID",
@@ -143,7 +191,6 @@
           "reason_code": {
             "enum": [
               "NETWORK_MISMATCH",
-              "ASSET_MISMATCH",
               "SIG_MALLEABLE",
               "SIGNER_MISMATCH",
               "NOT_YET_VALID",

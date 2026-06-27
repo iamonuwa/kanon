@@ -101,7 +101,7 @@ Pinned details that the generator MUST follow and the verifier MUST read:
 ```json
 {
   "id": "x402-evm-eip3009-cross-chain-replay-001",
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "protocol": "x402",
   "scheme": "exact",
   "network": "eip155:84532",
@@ -162,14 +162,13 @@ one rule, a conformant verifier MUST evaluate checks in this order and return th
 of the **first** check that fails. If no check fails, the verdict is `VALID`.
 
 1. `NETWORK_MISMATCH`
-2. `ASSET_MISMATCH`
-3. `SIG_MALLEABLE`
-4. `SIGNER_MISMATCH`
-5. `NOT_YET_VALID`
-6. `EXPIRED`
-7. `NONCE_REPLAY`
-8. `AMOUNT_INSUFFICIENT`
-9. `VALID`
+2. `SIG_MALLEABLE`
+3. `SIGNER_MISMATCH`
+4. `NOT_YET_VALID`
+5. `EXPIRED`
+6. `NONCE_REPLAY`
+7. `AMOUNT_INSUFFICIENT`
+8. `VALID`
 
 Rationale for the order: cheap structural comparisons against the requirements come first;
 signature-encoding validity (malleability) is checked before recovery because it is a
@@ -180,10 +179,10 @@ disambiguates adversarial multi-fault inputs, but it is normative so that all ve
 
 ---
 
-## 4. Reason codes (registry v1.0.0)
+## 4. Reason codes (registry v2.0.0)
 
 `schema/reason-codes.md` is the authoritative, versioned registry. The list below defines the
-v1 codes and, critically, what makes each one **detectable by a stateless verifier**. Reason
+v2 codes and, critically, what makes each one **detectable by a stateless verifier**. Reason
 codes are a stable interface; adding, removing, or redefining a code is a breaking change and
 requires a registry version bump.
 
@@ -191,7 +190,6 @@ requires a registry version bump.
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `VALID`               | All checks pass.                                                                                                                                                                                                     | Positive vectors only.                                                                                                                                                                                                                                   |
 | `NETWORK_MISMATCH`    | The vector's target `network` differs from `input.accepted.network`.                                                                                                                                                 | Plaintext comparison, before any cryptography.                                                                                                                                                                                                           |
-| `ASSET_MISMATCH`      | The asset under test differs from `input.accepted.asset` (token contract).                                                                                                                                           | Plaintext comparison, before any cryptography.                                                                                                                                                                                                           |
 | `SIG_MALLEABLE`       | The ECDSA `s` value is in the upper half of the curve order.                                                                                                                                                         | Violates the EIP-2 / EIP-2098 low-s requirement. Detected by inspecting the signature bytes before recovery.                                                                                                                                             |
 | `SIGNER_MISMATCH`     | The signature does not recover to `authorization.from` when the EIP-712 digest is reconstructed from the **expected** domain (target chainId, verifying token contract, name, version) and the authorization struct. | This single cause covers cross-chain replay, cross-contract replay, and tampering of any signed field. These are cryptographically indistinguishable at recovery, so they share this code. The specific attack is named in the vector's `encodes` field. |
 | `NOT_YET_VALID`       | `verification_time` is before `authorization.validAfter`.                                                                                                                                                            | Requires `context.verification_time`.                                                                                                                                                                                                                    |
@@ -199,12 +197,15 @@ requires a registry version bump.
 | `NONCE_REPLAY`        | `authorization.nonce` is present in `context.seen_nonces`.                                                                                                                                                           | Requires `context.seen_nonces`. Models a nonce already consumed or settled.                                                                                                                                                                              |
 | `AMOUNT_INSUFFICIENT` | The signature is valid and recovers correctly, but `input.payload.authorization.value` is less than `input.accepted.amount`.                                                                                         | Distinct from tampering: the mandate is authentic, it just underpays. A validly signed underpayment, not a forged amount (forging the amount breaks the signature and yields `SIGNER_MISMATCH`).                                                         |
 
-Note on the domain codes we previously sketched: `DOMAIN_CHAINID_MISMATCH` and
-`DOMAIN_CONTRACT_MISMATCH` are intentionally absent. A conformant verifier cannot return them
-as distinct from a generic recovery failure, because EIP-712 binds chainId and verifying
-contract into the same digest as every other signed field. Demanding them as expected reason
-codes would cause correct verifiers to fail the corpus. The attacks they named are preserved
-in the `encodes` field of the relevant `SIGNER_MISMATCH` vectors.
+Note on the domain codes we previously sketched: `DOMAIN_CHAINID_MISMATCH`,
+`DOMAIN_CONTRACT_MISMATCH`, and `ASSET_MISMATCH` are intentionally absent. A conformant verifier
+cannot return them as distinct from a generic recovery failure, because EIP-712 binds chainId and
+the verifying contract into the same digest as every other signed field, and the requirements
+carried inside `input.accepted` give no independent second asset to compare against
+`input.accepted.asset`. Demanding them as expected reason codes would cause correct verifiers to
+fail the corpus. The attacks they named (cross-chain replay, cross-contract or wrong
+`verifyingContract`, signed-field tampering) are preserved in the `encodes` field of the relevant
+`SIGNER_MISMATCH` vectors.
 
 ---
 

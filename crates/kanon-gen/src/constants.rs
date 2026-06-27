@@ -49,7 +49,7 @@ pub const TOKEN_NAME: &str = "USDC";
 pub const TOKEN_VERSION: &str = "2";
 
 /// The vector format version.
-pub const SCHEMA_VERSION: &str = "1.0.0";
+pub const SCHEMA_VERSION: &str = "2.0.0";
 
 /// Filler resource URL for the requirements.
 pub const RESOURCE: &str = "https://api.example.com/premium-data";

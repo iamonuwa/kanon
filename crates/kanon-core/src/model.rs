@@ -3,16 +3,19 @@
 //! These deserialize the parts of a Kanon vector the verifier needs. They are intentionally a
 //! separate copy from the generator's serialize models, the two crates meet only at the JSON.
 //! Unknown fields are ignored so the verifier reads the real x402 wire objects as they are.
+//!
+//! The requirements travel inside `input.accepted`, exactly as on the wire. The top-level
+//! `network` is the verifier's target and is compared against `input.accepted.network`.
 
 use serde::{Deserialize, Serialize};
 
 /// A single Kanon test vector, reduced to the fields the verifier consumes.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Vector {
-    /// The server's demand.
-    pub payment_requirements: PaymentRequirements,
-    /// The mandate under test.
-    pub input: PaymentPayload,
+    /// CAIP-2 target network the verifier treats as authoritative.
+    pub network: String,
+    /// The decoded x402 v2 payment object under test.
+    pub input: Input,
     /// Injected verification state. Absent means empty context.
     #[serde(default)]
     pub context: Context,
@@ -20,36 +23,13 @@ pub struct Vector {
     pub expected: Expected,
 }
 
-/// The server's demand, an x402 v2 `PaymentRequirements` object.
+/// The decoded x402 v2 payment object stored under `input`.
 #[derive(Debug, Clone, Deserialize)]
-pub struct PaymentRequirements {
-    /// CAIP-2 network the verifier treats as the target.
-    pub network: String,
-    /// The required token contract address.
-    pub asset: String,
-    /// The minimum amount required, as a base ten string.
-    #[serde(rename = "maxAmountRequired")]
-    pub max_amount_required: String,
-    /// The EIP-712 domain name and version for the token.
-    pub extra: Extra,
-}
-
-/// The EIP-712 domain hints carried in the requirements `extra` field.
-#[derive(Debug, Clone, Deserialize)]
-pub struct Extra {
-    /// The EIP-712 domain name.
-    pub name: String,
-    /// The EIP-712 domain version.
-    pub version: String,
-}
-
-/// The mandate under test, an x402 v2 `PaymentPayload` object.
-#[derive(Debug, Clone, Deserialize)]
-pub struct PaymentPayload {
-    /// The network the payload declares.
-    pub network: String,
-    /// The exact scheme payload.
+pub struct Input {
+    /// The submitted authorization and signature.
     pub payload: ExactPayload,
+    /// The requirements the client accepted.
+    pub accepted: Accepted,
 }
 
 /// The inner payload of the exact scheme, the signature and its authorization.
@@ -80,6 +60,28 @@ pub struct Authorization {
     pub nonce: String,
 }
 
+/// The requirements the client accepted, carried inside the payment object.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Accepted {
+    /// The declared CAIP-2 network.
+    pub network: String,
+    /// The required token contract address.
+    pub asset: String,
+    /// The required amount, as a base ten string.
+    pub amount: String,
+    /// The EIP-712 domain name and version for the token.
+    pub extra: Extra,
+}
+
+/// The EIP-712 domain hints carried in the accepted extra field.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Extra {
+    /// The EIP-712 domain name.
+    pub name: String,
+    /// The EIP-712 domain version.
+    pub version: String,
+}
+
 /// Injected verification state.
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct Context {
@@ -100,7 +102,7 @@ pub struct Expected {
     pub reason_code: ReasonCode,
 }
 
-/// A verdict reason code from registry v1.0.0.
+/// A verdict reason code from the registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ReasonCode {
@@ -108,8 +110,6 @@ pub enum ReasonCode {
     Valid,
     /// The payload network differs from the required network.
     NetworkMismatch,
-    /// The payload asset differs from the required asset.
-    AssetMismatch,
     /// The signature s value is in the upper half of the curve order.
     SigMalleable,
     /// The signature does not recover to the declared signer.

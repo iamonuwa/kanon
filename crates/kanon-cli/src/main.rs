@@ -8,7 +8,7 @@ use std::process::ExitCode;
 
 use anyhow::{anyhow, Context, Result};
 
-const DEFAULT_OUT: &str = "vectors";
+const DEFAULT_OUT: &str = "vectors/x402/exact/evm/eip3009";
 
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
@@ -73,7 +73,7 @@ fn verify_file(rest: &[String]) -> Result<()> {
     let vector: kanon_core::Vector =
         serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
 
-    let verdict = kanon_core::verify(&vector.payment_requirements, &vector.input, &vector.context)
+    let verdict = kanon_core::verify(&vector.network, &vector.input, &vector.context)
         .with_context(|| format!("verifying {}", path.display()))?;
 
     println!("{}", serde_json::to_string(&verdict)?);
