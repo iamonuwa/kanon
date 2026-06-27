@@ -11,7 +11,7 @@
 # review rules. Do not "DRY up" the duplicated crypto plumbing between them.
 [workspace]
 resolver = "2"
-members = ["crates/kanon-core"]
+members = ["crates/kanon-core", "crates/kanon-gen"]
 
 [workspace.package]
 version = "0.1.0"

@@ -1,0 +1,20 @@
+[package]
+name = "kanon-gen"
+description = "Deterministic generator for the Kanon x402 v2 exact / EVM / EIP-3009 test vector corpus."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+alloy-primitives = { version = "1", features = ["k256"] }
+alloy-sol-types.workspace = true
+alloy-signer.workspace = true
+alloy-signer-local.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
