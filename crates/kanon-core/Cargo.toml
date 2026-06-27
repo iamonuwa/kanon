@@ -1,0 +1,23 @@
+[package]
+name = "kanon-core"
+description = "Stateless, offline reference verifier for x402 v2 exact / EVM / EIP-3009 payment mandates."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+alloy-primitives = { version = "1", features = ["k256"] }
+alloy-sol-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+# Used only to craft signed fixtures inside unit tests. Not on the verify path.
+alloy-signer.workspace = true
+alloy-signer-local.workspace = true
+
+[lints]
+workspace = true

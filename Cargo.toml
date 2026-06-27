@@ -1,0 +1,41 @@
+# Kanon Rust workspace.
+#
+# Three crates with deliberately separate responsibilities:
+#   - kanon-core: the stateless, offline reference verifier (the correctness arbiter).
+#   - kanon-gen:  the corpus generator (signing side).
+#   - kanon-cli:  the binary wrapping both.
+#
+# kanon-gen and kanon-core do NOT share EIP-712 / verification logic: two independent
+# implementations meeting only at the JSON is the property that lets the corpus catch a
+# bug a shared implementation would hide on both sides. See SPEC.md and the kanon-rust
+# review rules. Do not "DRY up" the duplicated crypto plumbing between them.
+[workspace]
+resolver = "2"
+members = ["crates/kanon-core"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/iamonuwa/kanon"
+rust-version = "1.92"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+# Surface the panic-prone idioms the verifier must never use on adversarial input.
+unwrap_used = "warn"
+expect_used = "warn"
+indexing_slicing = "warn"
+panic = "warn"
+
+[workspace.dependencies]
+alloy-primitives = "1"
+alloy-sol-types = "1"
+alloy-signer = "1"
+alloy-signer-local = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
