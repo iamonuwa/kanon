@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kanon.dev/schema/vector.schema.json",
+  "title": "Kanon Test Vector",
+  "description": "One frozen input paired with the exact verdict a conformant verifier must return, plus the provenance of the rule or attack it encodes. Scoped to x402 v2, scheme exact, EVM, eip3009.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "schema_version",
+    "protocol",
+    "scheme",
+    "network",
+    "asset_transfer_method",
+    "encodes",
+    "provenance",
+    "description",
+    "payment_requirements",
+    "input",
+    "expected"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable, unique, kebab-case identifier. Never reused or renumbered.",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "schema_version": {
+      "type": "string",
+      "description": "Version of this vector format the vector conforms to, as semver.",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "protocol": {
+      "description": "The payment protocol under test.",
+      "const": "x402"
+    },
+    "scheme": {
+      "description": "The x402 scheme under test.",
+      "const": "exact"
+    },
+    "network": {
+      "type": "string",
+      "description": "CAIP-2 target network the verifier treats as the target, for example eip155:84532.",
+      "pattern": "^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$"
+    },
+    "asset_transfer_method": {
+      "description": "The asset transfer method under test.",
+      "const": "eip3009"
+    },
+    "encodes": {
+      "type": "string",
+      "description": "The attack or rule in plain language. This is where the human meaningful name lives.",
+      "minLength": 1
+    },
+    "provenance": {
+      "type": "array",
+      "description": "The sources the vector derives from: EIP, CWE, spec clause, or paper. At least one.",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "description": {
+      "type": "string",
+      "description": "One or two sentences: what the input is and why the verdict is what it is.",
+      "minLength": 1
+    },
+    "payment_requirements": {
+      "type": "object",
+      "description": "The server's demand, stored verbatim as an x402 v2 PaymentRequirements object. Field names track the live x402 v2 schema and are not redefined here."
+    },
+    "input": {
+      "type": "object",
+      "description": "The mandate under test, stored verbatim as an x402 v2 PaymentPayload. Field names track the live x402 v2 schema and are not redefined here."
+    },
+    "context": {
+      "type": "object",
+      "description": "Injected verification state. Absent means empty context.",
+      "additionalProperties": false,
+      "properties": {
+        "verification_time": {
+          "type": "integer",
+          "description": "The instant verification is deemed to occur, in unix seconds. Used for validAfter and validBefore."
+        },
+        "seen_nonces": {
+          "type": "array",
+          "description": "Nonces already consumed or settled before this verification.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "description": "The verdict. The reason code is part of the verdict, not a diagnostic afterthought.",
+      "additionalProperties": false,
+      "required": [
+        "valid",
+        "reason_code"
+      ],
+      "properties": {
+        "valid": {
+          "type": "boolean",
+          "description": "Whether a conformant verifier must accept the mandate."
+        },
+        "reason_code": {
+          "type": "string",
+          "description": "The reason code from the registry. See schema/reason-codes.md.",
+          "enum": [
+            "VALID",
+            "NETWORK_MISMATCH",
+            "ASSET_MISMATCH",
+            "SIG_MALLEABLE",
+            "SIGNER_MISMATCH",
+            "NOT_YET_VALID",
+            "EXPIRED",
+            "NONCE_REPLAY",
+            "AMOUNT_INSUFFICIENT"
+          ]
+        }
+      },
+      "if": {
+        "properties": {
+          "valid": {
+            "const": true
+          }
+        },
+        "required": [
+          "valid"
+        ]
+      },
+      "then": {
+        "properties": {
+          "reason_code": {
+            "const": "VALID"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "reason_code": {
+            "enum": [
+              "NETWORK_MISMATCH",
+              "ASSET_MISMATCH",
+              "SIG_MALLEABLE",
+              "SIGNER_MISMATCH",
+              "NOT_YET_VALID",
+              "EXPIRED",
+              "NONCE_REPLAY",
+              "AMOUNT_INSUFFICIENT"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
