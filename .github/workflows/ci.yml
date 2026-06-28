@@ -1,9 +1,9 @@
 name: CI
 
-# The four gates that protect the corpus: fmt and clippy for hygiene, cargo test for the
-# load-bearing tests (gen-vs-verifier self-check, byte-identity reproducibility gate, schema
-# validation, negative-control verdict), and a dependency audit. The weekly schedule surfaces a
-# newly published advisory even without a commit.
+# Checks that protect the corpus: fmt and clippy for hygiene, cargo test for the load-bearing
+# tests (generator-vs-verifier self-check, byte-identity reproducibility check, schema validation,
+# negative-control verdict), a dependency audit, and an independent Python signature cross-check.
+# The weekly schedule surfaces a newly published advisory even without a commit.
 on:
   push:
     branches: [main]
@@ -57,3 +57,20 @@ jobs:
       # new or vulnerable advisory is an un-ignored warning and fails the job.
       - name: Audit
         run: cargo audit --deny warnings
+
+  crosscheck:
+    name: crosscheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies (pinned)
+        run: pip install -r crosscheck/requirements.txt
+      - name: Cross-check committed vectors
+        run: python crosscheck/verify.py vectors
+      - name: Self-test (tamper detection)
+        run: python -m pytest crosscheck/test_crosscheck.py -q

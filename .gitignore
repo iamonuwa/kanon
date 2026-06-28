@@ -1,2 +1,5 @@
 # Rust build output
 /target
+
+__pycache__
+.venv
