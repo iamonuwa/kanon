@@ -83,9 +83,8 @@ pub fn generate_corpus(out: &Path) -> Result<Vec<PathBuf>> {
     let mut written = Vec::new();
     for vector in &corpus {
         let path = out.join(format!("{}.json", vector.id));
-        let mut json = serde_json::to_string_pretty(vector)
+        let json = kanon_gen::vector_to_json(vector)
             .with_context(|| format!("serializing {}", vector.id))?;
-        json.push('\n');
         std::fs::write(&path, &json).with_context(|| format!("writing {}", path.display()))?;
         written.push(path);
     }

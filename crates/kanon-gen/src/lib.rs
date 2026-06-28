@@ -14,6 +14,7 @@ mod eip712;
 mod error;
 mod model;
 mod scenarios;
+mod serialize;
 mod sign;
 
 pub use error::GenError;
@@ -22,6 +23,7 @@ pub use model::{
     Resource, Vector,
 };
 pub use scenarios::build_corpus;
+pub use serialize::vector_to_json;
 
 #[cfg(test)]
 mod tests;

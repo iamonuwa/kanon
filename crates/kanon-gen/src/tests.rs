@@ -78,3 +78,87 @@ fn generation_is_deterministic() {
     let second = serde_json::to_string(&build_corpus().unwrap()).unwrap();
     assert_eq!(first, second);
 }
+
+#[test]
+fn reproduces_committed_corpus() {
+    // The teeth: the generator's output must match the committed vector files byte for byte, using
+    // the same serialization the writer uses. The determinism test cannot catch drift between the
+    // generator and the committed corpus; this one does.
+    let dir = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../vectors/x402/exact/evm/eip3009"
+    );
+    for vector in build_corpus().unwrap() {
+        let produced = crate::serialize::vector_to_json(&vector).unwrap();
+        let path = std::path::Path::new(dir).join(format!("{}.json", vector.id));
+        let committed = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("reading committed {}: {e}", path.display()));
+        assert_eq!(
+            produced, committed,
+            "committed vector {} is out of date; re-run the generator (kanon generate) and commit \
+             the regenerated vectors",
+            vector.id
+        );
+    }
+}
+
+#[test]
+fn emitted_shape_is_locked() {
+    let corpus = build_corpus().unwrap();
+    let baseline = corpus
+        .iter()
+        .find(|v| v.id == "x402-evm-eip3009-valid-baseline-001")
+        .expect("baseline present");
+    let json = crate::serialize::vector_to_json(baseline).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+    // Presence and absence on the emitted output.
+    assert!(value.get("input").is_some(), "top-level input present");
+    assert!(
+        value.get("payment_requirements").is_none(),
+        "no top-level payment_requirements"
+    );
+    assert_eq!(
+        value.get("schema_version").and_then(|v| v.as_str()),
+        Some("2.0.0")
+    );
+
+    let input = value
+        .get("input")
+        .and_then(|v| v.as_object())
+        .expect("input is an object");
+    let keys: std::collections::BTreeSet<&str> = input.keys().map(String::as_str).collect();
+    assert_eq!(
+        keys,
+        ["accepted", "payload", "resource", "x402Version"]
+            .into_iter()
+            .collect::<std::collections::BTreeSet<&str>>(),
+        "input has exactly x402Version, payload, resource, accepted"
+    );
+
+    let accepted = input
+        .get("accepted")
+        .and_then(|v| v.as_object())
+        .expect("accepted is an object");
+    assert!(accepted.contains_key("amount"), "accepted has amount");
+    assert!(
+        !accepted.contains_key("maxAmountRequired"),
+        "accepted does not have maxAmountRequired"
+    );
+
+    // Wire ORDER, checked on the serialized string because serde_json::Value sorts map keys.
+    let pos = |needle: &str| {
+        json.find(needle)
+            .unwrap_or_else(|| panic!("missing {needle}"))
+    };
+    assert!(
+        pos("\"x402Version\"") < pos("\"payload\"")
+            && pos("\"payload\"") < pos("\"resource\"")
+            && pos("\"resource\"") < pos("\"accepted\""),
+        "input keys must be emitted in wire order"
+    );
+    assert!(
+        pos("\"authorization\"") < pos("\"signature\""),
+        "payload must emit authorization before signature"
+    );
+}
