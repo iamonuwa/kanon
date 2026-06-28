@@ -18,7 +18,7 @@ fn generated_vectors_verify_to_their_declared_verdict() {
         let parsed: kanon_core::Vector =
             serde_json::from_str(&json).expect("parse vector into verifier model");
 
-        let verdict = verify(&parsed.network, &parsed.input, &parsed.context)
+        let verdict = verify(&parsed.input, &parsed.context, Some(&parsed.network))
             .unwrap_or_else(|e| panic!("verify {} errored: {e}", vector.id));
 
         assert_eq!(

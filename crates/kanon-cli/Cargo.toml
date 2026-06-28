@@ -15,6 +15,7 @@ path = "src/main.rs"
 kanon-core = { path = "../kanon-core" }
 kanon-gen = { path = "../kanon-gen" }
 anyhow.workspace = true
+clap.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]

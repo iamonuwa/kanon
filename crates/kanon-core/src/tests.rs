@@ -89,27 +89,51 @@ fn ctx_at(time: i64) -> Context {
 
 #[test]
 fn baseline_is_valid() {
-    let verdict = verify(NETWORK, &input(84532, ASSET), &ctx_at(INSIDE_WINDOW)).unwrap();
+    let verdict = verify(&input(84532, ASSET), &ctx_at(INSIDE_WINDOW), Some(NETWORK)).unwrap();
     assert!(verdict.valid);
     assert_eq!(verdict.reason_code, ReasonCode::Valid);
 }
 
 #[test]
 fn target_network_mismatch_is_first() {
-    let verdict = verify("eip155:1", &input(84532, ASSET), &ctx_at(INSIDE_WINDOW)).unwrap();
+    let verdict = verify(
+        &input(84532, ASSET),
+        &ctx_at(INSIDE_WINDOW),
+        Some("eip155:1"),
+    )
+    .unwrap();
     assert!(!verdict.valid);
     assert_eq!(verdict.reason_code, ReasonCode::NetworkMismatch);
 }
 
 #[test]
+fn absent_target_skips_network_check() {
+    // With no target, a payload whose declared network would not match any particular target
+    // still verifies, because there is nothing to compare against.
+    let verdict = verify(&input(84532, ASSET), &ctx_at(INSIDE_WINDOW), None).unwrap();
+    assert!(verdict.valid);
+    assert_eq!(verdict.reason_code, ReasonCode::Valid);
+}
+
+#[test]
 fn cross_chain_signature_is_signer_mismatch() {
-    let verdict = verify(NETWORK, &input(8453, ASSET_OTHER), &ctx_at(INSIDE_WINDOW)).unwrap();
+    let verdict = verify(
+        &input(8453, ASSET_OTHER),
+        &ctx_at(INSIDE_WINDOW),
+        Some(NETWORK),
+    )
+    .unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::SignerMismatch);
 }
 
 #[test]
 fn cross_contract_signature_is_signer_mismatch() {
-    let verdict = verify(NETWORK, &input(84532, ASSET_OTHER), &ctx_at(INSIDE_WINDOW)).unwrap();
+    let verdict = verify(
+        &input(84532, ASSET_OTHER),
+        &ctx_at(INSIDE_WINDOW),
+        Some(NETWORK),
+    )
+    .unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::SignerMismatch);
 }
 
@@ -119,19 +143,19 @@ fn high_s_signature_is_malleable() {
     let sig = crate::crypto::parse_signature(&i.payload.signature).unwrap();
     let flipped = Signature::new(sig.r(), SECP256K1_N - sig.s(), !sig.v());
     i.payload.signature = format!("0x{}", hex::encode(flipped.as_bytes()));
-    let verdict = verify(NETWORK, &i, &ctx_at(INSIDE_WINDOW)).unwrap();
+    let verdict = verify(&i, &ctx_at(INSIDE_WINDOW), Some(NETWORK)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::SigMalleable);
 }
 
 #[test]
 fn before_window_is_not_yet_valid() {
-    let verdict = verify(NETWORK, &input(84532, ASSET), &ctx_at(1_740_672_000)).unwrap();
+    let verdict = verify(&input(84532, ASSET), &ctx_at(1_740_672_000), Some(NETWORK)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::NotYetValid);
 }
 
 #[test]
 fn at_valid_before_is_expired() {
-    let verdict = verify(NETWORK, &input(84532, ASSET), &ctx_at(1_740_672_154)).unwrap();
+    let verdict = verify(&input(84532, ASSET), &ctx_at(1_740_672_154), Some(NETWORK)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::Expired);
 }
 
@@ -141,7 +165,7 @@ fn seen_nonce_is_replay() {
         verification_time: Some(INSIDE_WINDOW),
         seen_nonces: vec![NONCE.to_string()],
     };
-    let verdict = verify(NETWORK, &input(84532, ASSET), &ctx).unwrap();
+    let verdict = verify(&input(84532, ASSET), &ctx, Some(NETWORK)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::NonceReplay);
 }
 
@@ -149,13 +173,13 @@ fn seen_nonce_is_replay() {
 fn underpayment_is_amount_insufficient() {
     let mut i = input(84532, ASSET);
     i.accepted = accepted_with(ASSET, "20000");
-    let verdict = verify(NETWORK, &i, &ctx_at(INSIDE_WINDOW)).unwrap();
+    let verdict = verify(&i, &ctx_at(INSIDE_WINDOW), Some(NETWORK)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::AmountInsufficient);
 }
 
 #[test]
 fn absent_verification_time_does_not_fail_temporally() {
-    let verdict = verify(NETWORK, &input(84532, ASSET), &Context::default()).unwrap();
+    let verdict = verify(&input(84532, ASSET), &Context::default(), Some(NETWORK)).unwrap();
     assert!(verdict.valid);
 }
 
@@ -166,27 +190,27 @@ fn malformed_input_never_panics() {
     // Garbage signature hex.
     let mut i = base.clone();
     i.payload.signature = "0xnothex".to_string();
-    assert!(verify(NETWORK, &i, &Context::default()).is_err());
+    assert!(verify(&i, &Context::default(), Some(NETWORK)).is_err());
 
     // Wrong length signature.
     let mut i = base.clone();
     i.payload.signature = "0xdeadbeef".to_string();
-    assert!(verify(NETWORK, &i, &Context::default()).is_err());
+    assert!(verify(&i, &Context::default(), Some(NETWORK)).is_err());
 
     // Bad nonce hex.
     let mut i = base.clone();
     i.payload.authorization.nonce = "0xzz".to_string();
-    assert!(verify(NETWORK, &i, &Context::default()).is_err());
+    assert!(verify(&i, &Context::default(), Some(NETWORK)).is_err());
 
     // Non numeric value.
     let mut i = base.clone();
     i.payload.authorization.value = "abc".to_string();
-    assert!(verify(NETWORK, &i, &Context::default()).is_err());
+    assert!(verify(&i, &Context::default(), Some(NETWORK)).is_err());
 
     // Negative verification time.
     let ctx = Context {
         verification_time: Some(-1),
         seen_nonces: Vec::new(),
     };
-    assert!(verify(NETWORK, &base, &ctx).is_err());
+    assert!(verify(&base, &ctx, Some(NETWORK)).is_err());
 }

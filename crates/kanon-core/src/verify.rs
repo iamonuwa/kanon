@@ -11,24 +11,32 @@ use crate::error::VerifyError;
 use crate::model::{Context, Expected, Input, ReasonCode};
 use crate::{caip2, eip712};
 
-/// Verifies a mandate against the target network and injected context.
+/// Verifies a mandate against an optional target network and injected context.
 ///
-/// `network` is the verifier's target, compared against the declared `input.accepted.network`.
-/// Everything else (the EIP-712 domain, the required amount) is read from `input.accepted`.
-/// Returns the [`Expected`] verdict of the first failing check in normative order, or a valid
-/// verdict if every check passes.
+/// `target_network` is the verifier's configured target, compared against the declared
+/// `input.accepted.network`. When it is `None` the network check is skipped, since there is
+/// nothing to compare against. Everything else (the EIP-712 domain, the required amount) is read
+/// from `input.accepted`. Returns the [`Expected`] verdict of the first failing check in normative
+/// order, or a valid verdict if every check passes.
 ///
 /// # Errors
 ///
 /// Returns a [`VerifyError`] only when the input cannot be parsed at all (malformed hex, a
 /// signature of the wrong length, a non numeric field, a bad network identifier, or a negative
 /// verification time). A well formed but rejected mandate yields a verdict, not an error.
-pub fn verify(network: &str, input: &Input, ctx: &Context) -> Result<Expected, VerifyError> {
+pub fn verify(
+    input: &Input,
+    ctx: &Context,
+    target_network: Option<&str>,
+) -> Result<Expected, VerifyError> {
     let accepted = &input.accepted;
 
     // Network mismatch: the target network against the declared network, before any cryptography.
-    if network != accepted.network {
-        return Ok(reject(ReasonCode::NetworkMismatch));
+    // Skipped when no target is supplied.
+    if let Some(target) = target_network {
+        if target != accepted.network {
+            return Ok(reject(ReasonCode::NetworkMismatch));
+        }
     }
 
     // Signature malleability: a property of the signature bytes, checked before recovery.
