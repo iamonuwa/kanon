@@ -102,7 +102,7 @@ fn committed_corpus_verifies_to_declared_verdicts() {
     // the verifier and runs under `cargo test`, the project's gate.
     let dir = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../vectors"));
     let outcome = check_corpus(dir).expect("check committed corpus");
-    assert_eq!(outcome.entries.len(), 6, "expected six committed vectors");
+    assert_eq!(outcome.entries.len(), 9, "expected nine committed vectors");
     assert!(
         outcome.all_matched(),
         "a committed vector's verdict differs from its declared expected"
@@ -133,7 +133,7 @@ fn check_corpus_on_generated_dir_all_match() {
     let dir = std::env::temp_dir().join(format!("kanon-check-{}", std::process::id()));
     generate_corpus(&dir).expect("generate");
     let outcome = check_corpus(&dir).expect("check");
-    assert_eq!(outcome.entries.len(), 6);
+    assert_eq!(outcome.entries.len(), 9);
     assert!(outcome.all_matched());
     std::fs::remove_dir_all(&dir).ok();
 }

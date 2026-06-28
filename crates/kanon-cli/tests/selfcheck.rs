@@ -11,7 +11,7 @@ use kanon_gen::build_corpus;
 #[test]
 fn generated_vectors_verify_to_their_declared_verdict() {
     let corpus = build_corpus().expect("build corpus");
-    assert_eq!(corpus.len(), 6, "expected six vectors");
+    assert_eq!(corpus.len(), 9, "expected nine vectors");
 
     for vector in &corpus {
         let json = serde_json::to_string(vector).expect("serialize vector");

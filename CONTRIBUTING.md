@@ -30,7 +30,7 @@ merged.
 - **Correct for the right reason.** A negative vector must fail for the reason it claims, and for that reason only. The declared verdict must be the first failing check in th normative check order. A vector that rejects for an incidental reason is a bug, not a vector.
 - **Single-fault isolation.** Each negative vector exhibits exactly one defect. If a scenario has two faults, split it into two vectors.
 - **Positive coverage.** A new attack category should land with at least one valid baseline that must pass, so the corpus proves where the line is, not only that it rejects.
-- **Reproducible from source.** Vectors are produced by the generator from the committed test keys, never hand-edited. Hand-written or hand-patched signatures are not permitted. After your change, regenerating must produce your committed files with no diff.
+- **Reproducible from source.** Vectors are produced by the generator from a committed, well-known public test key, never hand-edited. Hand-written or hand-patched signatures are not permitted. After your change, regenerating must produce your committed files with no diff.
 - **Depth over breadth.** Prefer vectors that catch hard, cryptographic, consequential failures over formatting nits or low-value permutations.
 
 ## The generator and verifier are independent by design
@@ -57,7 +57,8 @@ The scope clause must always match what the constraints enforce, exactly, in bot
 
 ## Test keys and secrets
 
-- `test-keys/` holds public test keys only, clearly marked, never usable on a live network.
+- The generator signs with a well-known public test key (anvil account zero, embedded in the generator and safe to commit; never fund it on a live network).
+- `test-keys/` is reserved for additional public test keys as more signers are added; it holds public test material only and must never contain a real private key, API key, or any credential.
 - Never commit a real private key, API key, or any credential.
 
 ## Building and checking locally

@@ -9,9 +9,10 @@ use alloy_signer_local::PrivateKeySigner;
 
 use crate::constants::{
     ASSET_BASE_MAINNET_USDC, ASSET_BASE_SEPOLIA_USDC, CHAIN_BASE_MAINNET, CHAIN_BASE_SEPOLIA,
-    DESCRIPTION, MAX_TIMEOUT_SECONDS, MIME_TYPE, NETWORK_BASE_SEPOLIA, NONCE, PAYER_KEY, PAY_TO,
-    RESOURCE, SCHEMA_VERSION, TOKEN_NAME, TOKEN_VERSION, VALID_AFTER, VALID_BEFORE, VALUE,
-    VERIFY_EXPIRED, VERIFY_INSIDE, X402_VERSION,
+    DESCRIPTION, MAX_TIMEOUT_SECONDS, MIME_TYPE, NETWORK_BASE_MAINNET, NETWORK_BASE_SEPOLIA, NONCE,
+    NONCE_AMOUNT_INSUFFICIENT, NONCE_NETWORK_MISMATCH, NONCE_NOT_YET_VALID, NOT_YET_VALID_AFTER,
+    NOT_YET_VALID_BEFORE, PAYER_KEY, PAY_TO, RESOURCE, SCHEMA_VERSION, TOKEN_NAME, TOKEN_VERSION,
+    UNDERPAY_VALUE, VALID_AFTER, VALID_BEFORE, VALUE, VERIFY_EXPIRED, VERIFY_INSIDE, X402_VERSION,
 };
 use crate::eip712::{self, AuthFields, DomainFields};
 use crate::error::GenError;
@@ -104,6 +105,65 @@ pub fn build_corpus() -> Result<Vec<Vector>, GenError> {
             Some(ctx_replay(VERIFY_INSIDE)),
             reject(ReasonCode::NonceReplay),
         ),
+        vector_with_target(
+            "x402-evm-eip3009-network-mismatch-001",
+            "Network mismatch: the target network differs from the accepted network.",
+            &["x402", "CAIP-2"],
+            "The payment is accepted on eip155:84532 but the verifier's target network is \
+             eip155:8453. The plaintext mismatch is caught before any cryptography, while the \
+             signature itself is authentic.",
+            NETWORK_BASE_MAINNET,
+            signed_payload(
+                &signer,
+                &from,
+                VALUE,
+                VALID_AFTER,
+                VALID_BEFORE,
+                NONCE_NETWORK_MISMATCH,
+                CHAIN_BASE_SEPOLIA,
+                ASSET_BASE_SEPOLIA_USDC,
+            )?,
+            Some(ctx_at(VERIFY_INSIDE)),
+            reject(ReasonCode::NetworkMismatch),
+        ),
+        vector(
+            "x402-evm-eip3009-not-yet-valid-001",
+            "Not yet valid: verification occurs before validAfter.",
+            &["EIP-3009"],
+            "The authorization is signed correctly but its validAfter is after the verification \
+             time, so the mandate is not yet valid.",
+            signed_payload(
+                &signer,
+                &from,
+                VALUE,
+                NOT_YET_VALID_AFTER,
+                NOT_YET_VALID_BEFORE,
+                NONCE_NOT_YET_VALID,
+                CHAIN_BASE_SEPOLIA,
+                ASSET_BASE_SEPOLIA_USDC,
+            )?,
+            Some(ctx_at(VERIFY_INSIDE)),
+            reject(ReasonCode::NotYetValid),
+        ),
+        vector(
+            "x402-evm-eip3009-amount-insufficient-001",
+            "Amount insufficient: the signed value is below the accepted amount.",
+            &["EIP-3009", "x402"],
+            "The authorization authentically signs a value below the accepted amount, an \
+             authorized underpayment caught only after the signature is known genuine.",
+            signed_payload(
+                &signer,
+                &from,
+                UNDERPAY_VALUE,
+                VALID_AFTER,
+                VALID_BEFORE,
+                NONCE_AMOUNT_INSUFFICIENT,
+                CHAIN_BASE_SEPOLIA,
+                ASSET_BASE_SEPOLIA_USDC,
+            )?,
+            Some(ctx_at(VERIFY_INSIDE)),
+            reject(ReasonCode::AmountInsufficient),
+        ),
     ])
 }
 
@@ -144,12 +204,68 @@ fn sign_under(
     sign::sign(signer, eip712::digest(auth, &domain))
 }
 
-/// Assembles a vector from the fields that vary, holding the constant envelope fixed.
-fn vector(
+/// Signs an authorization with the given fields and emits the matching payment object.
+///
+/// The signed struct and the emitted JSON are built from the same parameters, so they cannot drift.
+/// The resulting signature is authentic for `from`.
+///
+/// # Errors
+///
+/// Returns a [`GenError`] if a field fails to parse or signing fails.
+// Eight fixed inputs describe one signed authorization. Grouping them into a struct adds no clarity.
+#[allow(clippy::too_many_arguments)]
+fn signed_payload(
+    signer: &PrivateKeySigner,
+    from: &str,
+    value: &str,
+    valid_after: &str,
+    valid_before: &str,
+    nonce: &str,
+    chain_id: u64,
+    contract: &str,
+) -> Result<PaymentObject, GenError> {
+    let auth = AuthFields {
+        from: signer.address(),
+        to: PAY_TO
+            .parse::<Address>()
+            .map_err(|_| GenError::Address(PAY_TO.to_string()))?,
+        value: U256::from_str_radix(value, 10).map_err(|_| GenError::Integer(value.to_string()))?,
+        valid_after: U256::from_str_radix(valid_after, 10)
+            .map_err(|_| GenError::Integer(valid_after.to_string()))?,
+        valid_before: U256::from_str_radix(valid_before, 10)
+            .map_err(|_| GenError::Integer(valid_before.to_string()))?,
+        nonce: nonce
+            .parse::<B256>()
+            .map_err(|_| GenError::Nonce(nonce.to_string()))?,
+    };
+    let signature = sign_under(signer, &auth, chain_id, contract)?;
+    Ok(PaymentObject {
+        x402_version: X402_VERSION,
+        payload: ExactPayload {
+            authorization: Authorization {
+                from: from.to_string(),
+                to: PAY_TO.to_string(),
+                value: value.to_string(),
+                valid_after: valid_after.to_string(),
+                valid_before: valid_before.to_string(),
+                nonce: nonce.to_string(),
+            },
+            signature: sig_to_wire(&signature),
+        },
+        resource: resource(),
+        accepted: accepted(),
+    })
+}
+
+/// Assembles a vector with an explicit top-level target network.
+// Eight fields make up one vector envelope. Grouping them into a struct adds no clarity.
+#[allow(clippy::too_many_arguments)]
+fn vector_with_target(
     id: &str,
     encodes: &str,
     provenance: &[&str],
     description: &str,
+    network: &str,
     input: PaymentObject,
     context: Option<Context>,
     expected: Expected,
@@ -159,7 +275,7 @@ fn vector(
         schema_version: SCHEMA_VERSION.to_string(),
         protocol: "x402".to_string(),
         scheme: "exact".to_string(),
-        network: NETWORK_BASE_SEPOLIA.to_string(),
+        network: network.to_string(),
         asset_transfer_method: "eip3009".to_string(),
         encodes: encodes.to_string(),
         provenance: provenance.iter().map(|s| (*s).to_string()).collect(),
@@ -168,6 +284,28 @@ fn vector(
         context,
         expected,
     }
+}
+
+/// Assembles a vector whose target network is the baseline Base Sepolia network.
+fn vector(
+    id: &str,
+    encodes: &str,
+    provenance: &[&str],
+    description: &str,
+    input: PaymentObject,
+    context: Option<Context>,
+    expected: Expected,
+) -> Vector {
+    vector_with_target(
+        id,
+        encodes,
+        provenance,
+        description,
+        NETWORK_BASE_SEPOLIA,
+        input,
+        context,
+        expected,
+    )
 }
 
 /// The baseline accepted requirements, shared by every vector.

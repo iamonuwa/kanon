@@ -213,7 +213,7 @@ These exist so that vectors are reproducible byte-for-byte from source and survi
 - **Hex conventions.** Addresses, signatures, and `nonce` (a 32-byte value) are `0x`-prefixed hex strings. Addresses are stored checksummed but compared case-insensitively.
 - **Timestamps** (`verification_time`, `validAfter`, `validBefore`) are unix seconds; vector-level timestamps may be strings inside the x402 objects to match the wire format, and `context.verification_time` is a JSON integer.
 - **Stable ids.** `id` is assigned once and never changed; a corrected vector gets a new id rather than a silent edit, so references remain stable.
-- **Reproducible from source.** Every vector is regenerable by the generator from committed test keys. Hand-edited signatures are not permitted.
+- **Reproducible from source.** Every vector is regenerable by the generator from a committed, well-known public test key. Hand-edited signatures are not permitted.
 
 ---
 

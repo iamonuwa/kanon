@@ -147,12 +147,18 @@ pub struct Expected {
 pub enum ReasonCode {
     /// All checks pass.
     Valid,
+    /// The target network differs from the accepted network.
+    NetworkMismatch,
     /// The signature does not recover to the declared signer.
     SignerMismatch,
     /// The signature s value is in the upper half of the curve order.
     SigMalleable,
+    /// Verification occurs before the authorization validAfter.
+    NotYetValid,
     /// Verification occurs at or after the authorization validBefore.
     Expired,
     /// The authorization nonce was already consumed.
     NonceReplay,
+    /// The signed value is below the accepted amount.
+    AmountInsufficient,
 }
