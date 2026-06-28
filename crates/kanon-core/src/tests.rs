@@ -10,7 +10,9 @@ use alloy_signer_local::PrivateKeySigner;
 
 use crate::crypto::SECP256K1_N;
 use crate::eip712;
-use crate::model::{Accepted, Authorization, Context, ExactPayload, Extra, Input, ReasonCode};
+use crate::model::{
+    Accepted, Authorization, Context, ExactPayload, Expected, Extra, Input, ReasonCode,
+};
 use crate::verify::verify;
 
 const PAYER_KEY: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -181,6 +183,51 @@ fn underpayment_is_amount_insufficient() {
 fn absent_verification_time_does_not_fail_temporally() {
     let verdict = verify(&input(84532, ASSET), &Context::default(), Some(NETWORK)).unwrap();
     assert!(verdict.valid);
+}
+
+#[test]
+fn verdict_equality_has_teeth() {
+    // The corpus gate compares the verifier's verdict to a vector's declared `expected`. This test
+    // proves that comparison can both match and differ, so a vector with a wrong declared verdict
+    // would actually be caught. It is non-vacuous: an always-true Eq would fail the assert_ne, an
+    // always-false Eq would fail the assert_eq.
+    let accepted_verdict =
+        verify(&input(84532, ASSET), &ctx_at(INSIDE_WINDOW), Some(NETWORK)).unwrap();
+    assert_eq!(
+        accepted_verdict,
+        Expected {
+            valid: true,
+            reason_code: ReasonCode::Valid,
+        }
+    );
+    assert_ne!(
+        accepted_verdict,
+        Expected {
+            valid: false,
+            reason_code: ReasonCode::SignerMismatch,
+        }
+    );
+
+    // A known-rejecting case: the high-s malleable twin of the baseline signature.
+    let mut malleable = input(84532, ASSET);
+    let sig = crate::crypto::parse_signature(&malleable.payload.signature).unwrap();
+    let flipped = Signature::new(sig.r(), SECP256K1_N - sig.s(), !sig.v());
+    malleable.payload.signature = format!("0x{}", hex::encode(flipped.as_bytes()));
+    let rejected_verdict = verify(&malleable, &ctx_at(INSIDE_WINDOW), Some(NETWORK)).unwrap();
+    assert_eq!(
+        rejected_verdict,
+        Expected {
+            valid: false,
+            reason_code: ReasonCode::SigMalleable,
+        }
+    );
+    assert_ne!(
+        rejected_verdict,
+        Expected {
+            valid: true,
+            reason_code: ReasonCode::Valid,
+        }
+    );
 }
 
 #[test]

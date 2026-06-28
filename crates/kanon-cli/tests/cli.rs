@@ -96,6 +96,39 @@ fn neither_shape_is_an_error() {
 }
 
 #[test]
+fn committed_corpus_verifies_to_declared_verdicts() {
+    // The teeth: verify the committed vector files, which were signed by kanon-gen's independent
+    // signing-side EIP-712, not by the verifier's own digest. This locks the on-disk artifacts to
+    // the verifier and runs under `cargo test`, the project's gate.
+    let dir = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../vectors"));
+    let outcome = check_corpus(dir).expect("check committed corpus");
+    assert_eq!(outcome.entries.len(), 6, "expected six committed vectors");
+    assert!(
+        outcome.all_matched(),
+        "a committed vector's verdict differs from its declared expected"
+    );
+}
+
+#[test]
+fn bare_payload_matches_wrapped_vector() {
+    // The same payment object verifies identically whether presented bare or inside a vector
+    // wrapper, exercising the two-shape normalization and target/context plumbing.
+    let bare_opts = BareOptions {
+        verification_time: Some(INSIDE_WINDOW),
+        target_network: Some("eip155:84532".to_string()),
+        ..BareOptions::default()
+    };
+    let bare = verify_json(&baseline_bare_json(), &bare_opts).expect("verify bare");
+    let wrapped =
+        verify_json(&baseline_vector_json(), &BareOptions::default()).expect("verify vector");
+
+    assert!(!bare.was_vector);
+    assert!(wrapped.was_vector);
+    assert!(bare.verdict.valid);
+    assert_eq!(bare.verdict, wrapped.verdict);
+}
+
+#[test]
 fn check_corpus_on_generated_dir_all_match() {
     let dir = std::env::temp_dir().join(format!("kanon-check-{}", std::process::id()));
     generate_corpus(&dir).expect("generate");
