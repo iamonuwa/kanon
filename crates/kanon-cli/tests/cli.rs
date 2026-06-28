@@ -139,6 +139,70 @@ fn check_corpus_on_generated_dir_all_match() {
 }
 
 #[test]
+fn generate_reproduces_committed_corpus_bytes() {
+    // Regenerating through the real write path must reproduce the committed files byte for byte.
+    // This catches a generator/writer change that diverges from the committed corpus, which the
+    // self-consistency and verify-only tests cannot.
+    use std::collections::BTreeSet;
+
+    let committed = std::path::Path::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../vectors/x402/exact/evm/eip3009"
+    ));
+    let temp = std::env::temp_dir().join(format!("kanon-reproduce-{}", std::process::id()));
+    generate_corpus(&temp).expect("generate");
+
+    let names = |dir: &std::path::Path| -> BTreeSet<String> {
+        std::fs::read_dir(dir)
+            .expect("read dir")
+            .map(|e| e.expect("entry").file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".json"))
+            .collect()
+    };
+    let generated_names = names(&temp);
+    assert_eq!(
+        generated_names,
+        names(committed),
+        "generated and committed corpus filenames differ; re-run `kanon generate` and commit"
+    );
+
+    for name in &generated_names {
+        let got = std::fs::read(temp.join(name)).expect("read generated");
+        let want = std::fs::read(committed.join(name)).expect("read committed");
+        assert_eq!(
+            got, want,
+            "committed vector {name} is out of date; re-run `kanon generate` and commit the result"
+        );
+    }
+
+    std::fs::remove_dir_all(&temp).ok();
+}
+
+#[test]
+fn check_corpus_rejects_stray_non_vector_json() {
+    // vectors/ is vectors-only by contract: a stray JSON that is not a vector must error, not skip.
+    let dir = std::env::temp_dir().join(format!("kanon-stray-{}", std::process::id()));
+    generate_corpus(&dir).expect("generate");
+    let stray = dir.join("not-a-vector.json");
+    std::fs::write(&stray, "{\"foo\":1}").expect("write stray");
+
+    let err = check_corpus(&dir)
+        .err()
+        .expect("stray non-vector JSON must error");
+    let rendered = format!("{err:#}");
+    assert!(
+        rendered.contains("not-a-vector.json"),
+        "error must name the offending file, got: {rendered}"
+    );
+    assert!(
+        rendered.contains("only vector JSON may live under the corpus directory"),
+        "error must state the vectors-only contract, got: {rendered}"
+    );
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
 fn binary_exit_codes() {
     let bin = env!("CARGO_BIN_EXE_kanon");
     let dir = std::env::temp_dir().join(format!("kanon-exit-{}", std::process::id()));

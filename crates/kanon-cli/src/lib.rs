@@ -133,8 +133,15 @@ pub fn check_corpus(dir: &Path) -> Result<CorpusOutcome> {
     for path in files {
         let text = std::fs::read_to_string(&path)
             .with_context(|| format!("reading {}", path.display()))?;
-        let vector: Vector =
-            serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        // The corpus directory is vectors-only by contract. A `*.json` that does not parse as a
+        // vector is an error, never silently skipped: skipping could drop a real vector while the
+        // gate stayed green.
+        let vector: Vector = serde_json::from_str(&text).with_context(|| {
+            format!(
+                "{} could not be parsed as a vector; only vector JSON may live under the corpus directory",
+                path.display()
+            )
+        })?;
         let actual = kanon_core::verify(&vector.input, &vector.context, Some(&vector.network))
             .with_context(|| format!("verifying {}", path.display()))?;
         let declared = vector.expected;
