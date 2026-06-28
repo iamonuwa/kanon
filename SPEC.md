@@ -87,7 +87,7 @@ Pinned details that the generator MUST follow and the verifier MUST read:
 - The required amount field is named **`amount`** (a decimal string), not `maxAmountRequired`.
 - The `accepted` object carries its own `network`, `asset`, `payTo`, `maxTimeoutSeconds`, and `extra` (`name`, `version`). The EIP-712 domain is derived from `accepted`: `chainId` from `accepted.network`, `verifyingContract` from `accepted.asset`, `name`/`version` from `accepted.extra`.
 - The signed authorization fields (`from`, `to`, `value`, `validAfter`, `validBefore`, `nonce`) live under `input.payload.authorization`; the signature is `input.payload signature`.
-- These are x402's own field names. This document does not redefine them; it pins which ones the corpus relies on so the generator and verifier agree. If the live x402 v2 schem changes a name, update this section and `schema_version` together.
+- These are x402's own field names. This document does not redefine them; it pins which ones the corpus relies on so the generator and verifier agree. If the live x402 v2 schema changes a name, update this section and `schema_version` together.
 
 ### Annotated example (negative vector)
 
