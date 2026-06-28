@@ -1,0 +1,65 @@
+name: Release
+
+# Fires when a corpus release tag is pushed. The tag already points at a commit a human has
+# reviewed and that CI has shown green, so publishing does not certify anything new. The verify
+# job below is only a guard: it re-runs the independent cross-check against the tagged tree so a
+# broken corpus can never be published, even if the wrong commit was tagged by mistake.
+on:
+  push:
+    tags:
+      - "corpus-v*"
+
+# Only the permission needed to create a Release. Nothing more.
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    name: verify (guard before publish)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies (pinned)
+        run: pip install -r crosscheck/requirements.txt
+      - name: Independent cross-check of the tagged corpus
+        run: python crosscheck/verify.py vectors
+      - name: Cross-check self-test
+        run: python -m pytest crosscheck/test_crosscheck.py -q
+
+  release:
+    name: release (publish notes from CHANGELOG.md)
+    # Publishing must not proceed unless the guard passed.
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      # Extract exactly the CHANGELOG section whose header is `## [<tag>]`, stopping at the next
+      # `## [` header. The tag is passed via env, not interpolated into the script, to avoid any
+      # injection through the ref name. The header format in CHANGELOG.md must stay in lockstep
+      # with this matcher.
+      - name: Extract release notes
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          awk -v tag="$TAG" '
+            index($0, "## [" tag "]") == 1 { flag = 1; print; next }
+            flag && index($0, "## [") == 1 { flag = 0 }
+            flag { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "No CHANGELOG.md section found for $TAG" >&2
+            exit 1
+          fi
+      - name: Release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: ${{ github.ref_name }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
