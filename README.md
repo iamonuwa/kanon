@@ -82,13 +82,19 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo audit
 ```
 
-`cargo test` runs the full suite, including the generator-versus-verifier cross-check, the
-byte-for-byte corpus reproducibility gate, and schema validation.
+`cargo test` runs the full suite, including the generator-versus-verifier cross-check, the byte-for-byte corpus reproducibility gate, and schema validation.
+
+## Independent cross-check
+
+An independent reimplementation of the signature check, written in Python on [eth-account](https://github.com/ethereum/eth-account), lives in [crosscheck](crosscheck/). It shares no code with the Rust crates and meets them only at the committed JSON, so its agreement is cross-implementation evidence that each vector's signature is what its reason code claims. It runs in CI on every push and pull request. See [README.md](crosscheck/README.md).
+
+```bash
+python crosscheck/verify.py vectors
+```
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). New vectors must cite their provenance, isolate a single fault, and be
-reproducible from the generator.
+See [CONTRIBUTING.md](CONTRIBUTING.md). New vectors must cite their provenance, isolate a single fault, and be reproducible from the generator.
 
 ## License
 
