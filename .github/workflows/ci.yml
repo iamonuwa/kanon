@@ -1,0 +1,59 @@
+name: CI
+
+# The four gates that protect the corpus: fmt and clippy for hygiene, cargo test for the
+# load-bearing tests (gen-vs-verifier self-check, byte-identity reproducibility gate, schema
+# validation, negative-control verdict), and a dependency audit. The weekly schedule surfaces a
+# newly published advisory even without a commit.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1" # Monday 06:00 UTC
+
+# Minimal token scope; this workflow reads the repo and needs nothing else.
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref to avoid wasted CI.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust (stable, with rustfmt and clippy)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+
+  audit:
+    name: audit (dependency advisories)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      # Honors .cargo/audit.toml: the three accepted unmaintained advisories are ignored, while any
+      # new or vulnerable advisory is an un-ignored warning and fails the job.
+      - name: Audit
+        run: cargo audit --deny warnings
