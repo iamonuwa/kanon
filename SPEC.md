@@ -31,7 +31,7 @@ A vector is a single JSON object. Fields:
 | `network`               | string          | yes         | CAIP-2 target network, e.g. `"eip155:84532"`. The chain the verifier treats as the target.                                                                                                            |
 | `asset_transfer_method` | string          | yes         | `"eip3009"`.                                                                                                                                                                                          |
 | `encodes`               | string          | yes         | The attack or rule, in plain language. This is where the human-meaningful name lives (e.g. "cross-chain replay via chainId substitution").                                                            |
-| `provenance`            | string[]        | yes (min 1) | The sources the vector derives from: EIP, CWE, spec clause, or paper (e.g. `["EIP-3009","EIP-712","CWE-294"]`). No vector exists "because we said so."                                                |
+| `provenance`            | string[]        | yes (min 1) | The sources the vector derives from: EIP, CVE, CWE, spec clause, or paper (e.g. `["EIP-3009","EIP-712","CWE-294"]`). No vector exists "because we said so."                                            |
 | `description`           | string          | yes         | One or two sentences: what the input is and why the verdict is what it is.                                                                                                                            |
 | `input`                 | object          | yes         | The full decoded x402 v2 payment object, stored verbatim (see "Wire shape" below). It contains the submitted `payload` and the `accepted` requirements together, exactly as a verifier receives them. |
 | `context`               | object          | no          | Injected verification state. See section 5. Absent means empty context.                                                                                                                               |
@@ -100,7 +100,7 @@ Pinned details that the generator MUST follow and the verifier MUST read:
   "network": "eip155:84532",
   "asset_transfer_method": "eip3009",
   "encodes": "Cross-chain replay: signature bound to eip155:8453 presented to an eip155:84532 server",
-  "provenance": ["EIP-712", "EIP-3009", "CWE-294"],
+  "provenance": ["arXiv:2605.11781", "EIP-712", "EIP-3009", "CWE-294"],
   "description": "The authorization was signed under the Base mainnet domain (chainId 8453) and is replayed against a Base Sepolia (84532) server. Reconstructing the EIP-712 digest with the target chainId from accepted yields a recovered address that is not authorization.from.",
   "input": {
     "x402Version": 2,

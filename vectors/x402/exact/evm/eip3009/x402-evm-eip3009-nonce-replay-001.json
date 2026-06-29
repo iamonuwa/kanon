@@ -7,6 +7,7 @@
   "asset_transfer_method": "eip3009",
   "encodes": "Replay of a previously consumed authorization nonce.",
   "provenance": [
+    "arXiv:2605.11781",
     "EIP-3009",
     "CWE-294"
   ],

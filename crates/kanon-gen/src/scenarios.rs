@@ -56,7 +56,7 @@ pub fn build_corpus() -> Result<Vec<Vector>, GenError> {
         vector(
             "x402-evm-eip3009-cross-chain-replay-001",
             "Cross-chain replay: signature bound to eip155:8453 presented to an eip155:84532 server.",
-            &["EIP-712", "EIP-3009", "CWE-294"],
+            &["arXiv:2605.11781", "EIP-712", "EIP-3009", "CWE-294"],
             "The authorization was signed under the Base mainnet domain (chainId 8453) and is \
              replayed against a Base Sepolia server. Reconstructing the digest with the target \
              chainId yields a recovered address that is not authorization.from.",
@@ -67,7 +67,7 @@ pub fn build_corpus() -> Result<Vec<Vector>, GenError> {
         vector(
             "x402-evm-eip3009-cross-contract-replay-001",
             "Cross-contract replay: signature bound to a different verifyingContract on the same chain.",
-            &["EIP-712", "EIP-3009", "CWE-294"],
+            &["arXiv:2605.11781", "EIP-712", "EIP-3009", "CWE-294"],
             "The authorization was signed under a different token contract on the same chain. \
              Reconstructing the digest with the required asset as verifyingContract yields a \
              recovered address that is not authorization.from.",
@@ -78,7 +78,7 @@ pub fn build_corpus() -> Result<Vec<Vector>, GenError> {
         vector(
             "x402-evm-eip3009-sig-malleable-high-s-001",
             "Signature malleability: the s value is in the upper half of the curve order (violates EIP-2).",
-            &["EIP-2", "EIP-2098", "EIP-712"],
+            &["CVE-2022-35961", "EIP-2", "EIP-2098", "EIP-712"],
             "The malleable high s twin of the baseline signature. It still recovers to the signer \
              but a conformant verifier rejects it at the low s check before recovery.",
             payload(sig_to_wire(&malleable_sig), &from),
@@ -98,7 +98,7 @@ pub fn build_corpus() -> Result<Vec<Vector>, GenError> {
         vector(
             "x402-evm-eip3009-nonce-replay-001",
             "Replay of a previously consumed authorization nonce.",
-            &["EIP-3009", "CWE-294"],
+            &["arXiv:2605.11781", "EIP-3009", "CWE-294"],
             "The baseline signature is unchanged. The authorization nonce is declared already \
              consumed through the injected context, so the mandate is a replay.",
             payload(sig_to_wire(&baseline_sig), &from),

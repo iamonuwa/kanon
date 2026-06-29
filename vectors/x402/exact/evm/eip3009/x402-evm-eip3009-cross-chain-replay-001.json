@@ -7,6 +7,7 @@
   "asset_transfer_method": "eip3009",
   "encodes": "Cross-chain replay: signature bound to eip155:8453 presented to an eip155:84532 server.",
   "provenance": [
+    "arXiv:2605.11781",
     "EIP-712",
     "EIP-3009",
     "CWE-294"

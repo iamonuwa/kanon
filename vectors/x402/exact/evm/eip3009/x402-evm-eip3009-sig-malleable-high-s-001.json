@@ -7,6 +7,7 @@
   "asset_transfer_method": "eip3009",
   "encodes": "Signature malleability: the s value is in the upper half of the curve order (violates EIP-2).",
   "provenance": [
+    "CVE-2022-35961",
     "EIP-2",
     "EIP-2098",
     "EIP-712"
