@@ -217,7 +217,17 @@ These exist so that vectors are reproducible byte-for-byte from source and survi
 
 ---
 
-## 7. Versioning
+## 7. Provenance index
+
+The corpus cites the sources each vector derives from as bare identifier tokens in its `provenance` array. `schema/provenance.json` is the auditable index of those tokens. It exists so a reader or a CI job can resolve every cited token to a source, and so the citations can be checked for drift against the corpus. It is metadata about the corpus, not an input to verification. No verifier, generator, or cross-check reads it, and it never affects a verdict.
+
+The index has two parts. A curated table, maintained by hand, gives each identifier a `type`, a resolvable `url`, and a one-line `note`. A derived part, the `vectors` array under each identifier, lists the vector ids that cite it and is populated by walking the corpus, never by hand. URLs and notes live only in the index. The vectors keep bare tokens.
+
+The `type` field is drawn from a closed vocabulary: `CVE`, `CWE`, `EIP`, `paper`, `spec`. The index is derived and checked, not authoritative over the vectors: the corpus is the source of truth for which tokens are cited, and a CI check fails if a cited token is missing from the index or if any `vectors` array does not match the corpus.
+
+---
+
+## 8. Versioning
 
 Two version numbers, kept separate:
 
@@ -228,7 +238,7 @@ A verifier states which `schema_version` range and which reason-code registry ve
 
 ---
 
-## 8. What this document deliberately does not cover
+## 9. What this document deliberately does not cover
 
 To keep the contract small, the following are explicitly out of scope for v1 and are added later only when a real need arrives, each as its own scoped extension:
 

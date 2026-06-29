@@ -1,0 +1,91 @@
+{
+  "version": "1.0.0",
+  "sources": {
+    "CAIP-2": {
+      "type": "spec",
+      "url": "https://chainagnostic.org/CAIPs/caip-2",
+      "note": "Chain id namespace for blockchain identifiers",
+      "vectors": [
+        "x402-evm-eip3009-network-mismatch-001"
+      ]
+    },
+    "CVE-2022-35961": {
+      "type": "CVE",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2022-35961",
+      "note": "OpenZeppelin EIP-2098 compact-signature malleability, GHSA-4h98-2769-gh6h, patched in 4.7.3",
+      "vectors": [
+        "x402-evm-eip3009-sig-malleable-high-s-001"
+      ]
+    },
+    "CWE-294": {
+      "type": "CWE",
+      "url": "https://cwe.mitre.org/data/definitions/294.html",
+      "note": "Authentication Bypass by Capture-replay",
+      "vectors": [
+        "x402-evm-eip3009-cross-chain-replay-001",
+        "x402-evm-eip3009-cross-contract-replay-001",
+        "x402-evm-eip3009-nonce-replay-001"
+      ]
+    },
+    "EIP-2": {
+      "type": "EIP",
+      "url": "https://eips.ethereum.org/EIPS/eip-2",
+      "note": "Low-s requirement for ECDSA signatures",
+      "vectors": [
+        "x402-evm-eip3009-sig-malleable-high-s-001"
+      ]
+    },
+    "EIP-2098": {
+      "type": "EIP",
+      "url": "https://eips.ethereum.org/EIPS/eip-2098",
+      "note": "Compact signature representation",
+      "vectors": [
+        "x402-evm-eip3009-sig-malleable-high-s-001"
+      ]
+    },
+    "EIP-3009": {
+      "type": "EIP",
+      "url": "https://eips.ethereum.org/EIPS/eip-3009",
+      "note": "Transfer with authorization for gasless token transfers",
+      "vectors": [
+        "x402-evm-eip3009-amount-insufficient-001",
+        "x402-evm-eip3009-cross-chain-replay-001",
+        "x402-evm-eip3009-cross-contract-replay-001",
+        "x402-evm-eip3009-expired-001",
+        "x402-evm-eip3009-nonce-replay-001",
+        "x402-evm-eip3009-not-yet-valid-001",
+        "x402-evm-eip3009-valid-baseline-001"
+      ]
+    },
+    "EIP-712": {
+      "type": "EIP",
+      "url": "https://eips.ethereum.org/EIPS/eip-712",
+      "note": "Typed structured data hashing and signing",
+      "vectors": [
+        "x402-evm-eip3009-cross-chain-replay-001",
+        "x402-evm-eip3009-cross-contract-replay-001",
+        "x402-evm-eip3009-sig-malleable-high-s-001",
+        "x402-evm-eip3009-valid-baseline-001"
+      ]
+    },
+    "arXiv:2605.11781": {
+      "type": "paper",
+      "url": "https://arxiv.org/abs/2605.11781",
+      "note": "Five Attacks on x402",
+      "vectors": [
+        "x402-evm-eip3009-cross-chain-replay-001",
+        "x402-evm-eip3009-cross-contract-replay-001",
+        "x402-evm-eip3009-nonce-replay-001"
+      ]
+    },
+    "x402": {
+      "type": "spec",
+      "url": "https://github.com/x402-foundation/x402",
+      "note": "x402 v2 exact scheme",
+      "vectors": [
+        "x402-evm-eip3009-amount-insufficient-001",
+        "x402-evm-eip3009-network-mismatch-001"
+      ]
+    }
+  }
+}
