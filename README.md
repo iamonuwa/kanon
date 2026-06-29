@@ -2,6 +2,8 @@
 
 A conformance test-vector corpus and reference verifier for x402 agent-payment mandates. Kanon verifies [x402](https://github.com/x402-foundation/x402) v2 `exact`-scheme EVM mandates settled via [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009), and returns a pass/fail verdict with a stable reason code. See [SPEC.md](SPEC.md) for the normative scope and verdict semantics, and [reason-codes.md](schema/reason-codes.md) for the reason-code registry.
 
+Kanon is a neutral, vendor-independent reference. The corpus is the canonical artifact and the verifier is a replaceable reference implementation, so conformance is defined by the vectors rather than by any one codebase. Every vector is reproducible from source and cites real provenance, a CVE, EIP, attack paper, or spec clause, so no vector exists by assertion. It checks the cryptographic correctness of signed mandates, a layer distinct from canonicalisation or settlement, and any implementation can measure itself against the same vectors.
+
 ## Install
 
 Install the `kanon` binary onto your PATH:
