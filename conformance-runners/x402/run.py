@@ -74,7 +74,13 @@ def main():
     print("-" * 62)
     counts = {}
     for f in files:
-        expected, high_s, res = run_one(f)
+        # A single malformed vector reports an error row instead of aborting the whole run.
+        try:
+            expected, high_s, res = run_one(f)
+        except Exception as e:
+            counts["ERROR"] = counts.get("ERROR", 0) + 1
+            print(f"{'(load/build failed)':<20}{'-':<8}{'error':<12}ERROR({os.path.basename(f)}: {type(e).__name__})")
+            continue
         verdict = verdict_for(expected, res)
         k = verdict.split("(")[0]
         counts[k] = counts.get(k, 0) + 1
