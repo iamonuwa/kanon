@@ -94,6 +94,9 @@ An independent reimplementation of the signature check, written in Python on [et
 python crosscheck/verify.py vectors
 ```
 
+## Conformance runners
+Example runners that execute the corpus against third-party implementations live in [conformance-runners](conformance-runners/). Each consumes a published SDK and reports a per-vector verdict. See [README.md](conformance-runners/README.md).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). New vectors must cite their provenance, isolate a single fault, and be reproducible from the generator.
