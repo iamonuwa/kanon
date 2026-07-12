@@ -203,6 +203,10 @@ The corpus deliberately does **not** test checks that depend on non-deterministi
 
 `AMOUNT_INSUFFICIENT` is therefore about the **signed value versus the required amount**, both of which are in the mandate and the requirements and are fully deterministic. It is not about wallet balance. The corpus tests the cryptographic and structural validity of the mandate, not the state of the world at settlement time.
 
+### Out of scope: canonicalization
+
+Kanon checks the cryptographic correctness of signed mandates, a layer distinct from canonicalization. Signed artifacts are treated as opaque byte sequences: the verifier reconstructs the EIP-712 digest from the vector's structured fields and never canonicalizes the JSON a mandate arrived in. JSON Canonicalization Scheme ([RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)) is the reference for that adjacent layer. It is cited here to mark where this project's lane ends and the canonicalization layer begins; Kanon does not implement or depend on it.
+
 ---
 
 ## 6. Encoding and determinism rules
