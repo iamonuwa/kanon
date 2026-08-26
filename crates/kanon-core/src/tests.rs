@@ -4,6 +4,8 @@
 //! own digest only to exercise the recovery path. The cross implementation check, generator
 //! against verifier, lives in the kanon-cli self check.
 
+use std::collections::HashSet;
+
 use alloy_primitives::{hex, Address, Signature, B256, U256};
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
@@ -85,7 +87,7 @@ fn input(chain_id: u64, contract: &str) -> Input {
 fn ctx_at(time: i64) -> Context {
     Context {
         verification_time: Some(time),
-        seen_nonces: Vec::new(),
+        seen_nonces: HashSet::new(),
     }
 }
 
@@ -165,10 +167,45 @@ fn at_valid_before_is_expired() {
 fn seen_nonce_is_replay() {
     let ctx = Context {
         verification_time: Some(INSIDE_WINDOW),
-        seen_nonces: vec![NONCE.to_string()],
+        seen_nonces: HashSet::from([crate::parse_seen_nonce(NONCE).unwrap()]),
     };
     let verdict = verify(&input(84532, ASSET), &ctx, Some(NETWORK)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::NonceReplay);
+}
+
+#[test]
+fn replay_lookup_handles_a_large_consumed_set() {
+    let mut seen_nonces = HashSet::with_capacity(100_001);
+    for value in 0..100_000_u64 {
+        let mut nonce = [0_u8; 32];
+        nonce[24..].copy_from_slice(&value.to_be_bytes());
+        seen_nonces.insert(nonce);
+    }
+    seen_nonces.insert(crate::parse_seen_nonce(NONCE).unwrap());
+    let ctx = Context {
+        verification_time: Some(INSIDE_WINDOW),
+        seen_nonces,
+    };
+    let verdict = verify(&input(84532, ASSET), &ctx, Some(NETWORK)).unwrap();
+    assert_eq!(verdict.reason_code, ReasonCode::NonceReplay);
+}
+
+#[test]
+fn context_rejects_malformed_seen_nonce_during_construction() {
+    let json = r#"{"verification_time":1740672100,"seen_nonces":["0xdeadbeef"]}"#;
+    let err = serde_json::from_str::<Context>(json).expect_err("short nonce must be rejected");
+    assert!(
+        err.to_string().contains("32 byte"),
+        "error must explain the nonce width, got: {err}"
+    );
+}
+
+#[test]
+fn context_normalizes_and_deduplicates_seen_nonces_once() {
+    let upper = NONCE.to_ascii_uppercase();
+    let json = format!(r#"{{"seen_nonces":["{NONCE}","{upper}"]}}"#);
+    let ctx = serde_json::from_str::<Context>(&json).expect("valid nonce set");
+    assert_eq!(ctx.seen_nonces.len(), 1);
 }
 
 #[test]
@@ -257,7 +294,7 @@ fn malformed_input_never_panics() {
     // Negative verification time.
     let ctx = Context {
         verification_time: Some(-1),
-        seen_nonces: Vec::new(),
+        seen_nonces: HashSet::new(),
     };
     assert!(verify(&base, &ctx, Some(NETWORK)).is_err());
 }

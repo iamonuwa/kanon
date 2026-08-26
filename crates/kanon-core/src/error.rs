@@ -12,6 +12,9 @@ pub enum VerifyError {
     /// A field that must be hex was not valid hex.
     #[error("malformed hex in field `{0}`")]
     Hex(&'static str),
+    /// A consumed nonce was not exactly 32 bytes of hexadecimal data.
+    #[error("seen nonce must be 0x-prefixed 32 byte hex")]
+    SeenNonce,
     /// A field that must be an EVM address was not a valid address.
     #[error("invalid address in field `{0}`")]
     Address(&'static str),

@@ -4,6 +4,7 @@
 //! arguments, resolves the system clock for bare payloads, calls the library half, and maps the
 //! outcome to a stable exit code. It contains no verification logic of its own.
 
+use std::collections::HashSet;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -12,9 +13,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use clap::{Args, Parser, Subcommand};
 
 use kanon_cli::{check_corpus, generate_corpus, verify_json, BareOptions};
+use kanon_core::parse_seen_nonce;
 
 const DEFAULT_OUT: &str = "vectors/x402/exact/evm/eip3009";
 const DEFAULT_CORPUS_DIR: &str = "vectors";
+const MAX_SEEN_NONCES: usize = 100_000;
 
 /// Generate and verify Kanon x402 v2 exact / EVM / EIP-3009 test vectors.
 #[derive(Parser)]
@@ -51,10 +54,10 @@ struct VerifyArgs {
     /// Omit the verification time entirely, skipping temporal checks (bare payloads only).
     #[arg(long)]
     no_time: bool,
-    /// A consumed nonce for the replay check, repeatable (bare payloads only).
+    /// A consumed nonce for the replay check, repeatable (bare payloads only; max 100,000 unique).
     #[arg(long = "seen-nonce")]
     seen_nonce: Vec<String>,
-    /// File of newline delimited consumed nonces (bare payloads only).
+    /// File of newline delimited consumed nonces (bare payloads only; max 100,000 unique).
     #[arg(long = "seen-nonces")]
     seen_nonces: Option<PathBuf>,
     /// Target CAIP-2 network for the network mismatch check (bare payloads only).
@@ -185,17 +188,26 @@ fn read_source(path: &str) -> anyhow::Result<String> {
 }
 
 /// Collects the consumed-nonce set from repeated flags and an optional file.
-fn collect_seen_nonces(args: &VerifyArgs) -> anyhow::Result<Vec<String>> {
+fn collect_seen_nonces(args: &VerifyArgs) -> anyhow::Result<HashSet<[u8; 32]>> {
     use anyhow::Context as _;
-    let mut nonces = args.seen_nonce.clone();
+    let mut values = args.seen_nonce.clone();
     if let Some(path) = &args.seen_nonces {
         let text =
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
         for line in text.lines() {
             let trimmed = line.trim();
             if !trimmed.is_empty() {
-                nonces.push(trimmed.to_string());
+                values.push(trimmed.to_string());
             }
+        }
+    }
+    let mut nonces = HashSet::with_capacity(values.len().min(MAX_SEEN_NONCES));
+    for value in values {
+        nonces.insert(parse_seen_nonce(&value)?);
+        if nonces.len() > MAX_SEEN_NONCES {
+            return Err(anyhow::anyhow!(
+                "seen nonce set exceeds the CLI limit of {MAX_SEEN_NONCES} unique entries"
+            ));
         }
     }
     Ok(nonces)

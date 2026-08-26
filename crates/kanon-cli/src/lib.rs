@@ -5,6 +5,7 @@
 //! parses arguments, resolves the system clock, and maps outcomes to exit codes. No verification
 //! logic lives here beyond calling `kanon_core::verify`.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context as _, Result};
@@ -19,7 +20,7 @@ pub struct BareOptions {
     /// The verification time, or `None` to skip temporal checks.
     pub verification_time: Option<i64>,
     /// The consumed-nonce set for the replay check.
-    pub seen_nonces: Vec<String>,
+    pub seen_nonces: HashSet<[u8; 32]>,
     /// The target network for the network-mismatch check, or `None` to skip it.
     pub target_network: Option<String>,
 }
