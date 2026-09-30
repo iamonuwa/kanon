@@ -40,6 +40,8 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: Nonce replay performance regression (release, isolated)
+        run: cargo test -p kanon-core --release replay_lookup_time_is_bounded_for_absent_nonce -- --ignored --nocapture --test-threads=1
 
   audit:
     name: audit (dependency advisories)

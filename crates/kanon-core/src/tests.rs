@@ -5,6 +5,8 @@
 //! against verifier, lives in the kanon-cli self check.
 
 use std::collections::HashSet;
+use std::hint::black_box;
+use std::time::{Duration, Instant};
 
 use alloy_primitives::{hex, Address, Signature, B256, U256};
 use alloy_signer::SignerSync;
@@ -175,19 +177,97 @@ fn seen_nonce_is_replay() {
 
 #[test]
 fn replay_lookup_handles_a_large_consumed_set() {
-    let mut seen_nonces = HashSet::with_capacity(100_001);
-    for value in 0..100_000_u64 {
+    let i = input(84532, ASSET);
+    let mut ctx = Context {
+        verification_time: Some(INSIDE_WINDOW),
+        seen_nonces: consumed_nonces(100_000),
+    };
+    assert_eq!(ctx.seen_nonces.len(), 100_000);
+    assert!(!ctx
+        .seen_nonces
+        .contains(&crate::parse_seen_nonce(NONCE).unwrap()));
+    let verdict = verify(&i, &ctx, Some(NETWORK)).unwrap();
+    assert!(verdict.valid);
+    assert_eq!(verdict.reason_code, ReasonCode::Valid);
+
+    ctx.seen_nonces
+        .insert(crate::parse_seen_nonce(NONCE).unwrap());
+    let verdict = verify(&i, &ctx, Some(NETWORK)).unwrap();
+    assert!(!verdict.valid);
+    assert_eq!(verdict.reason_code, ReasonCode::NonceReplay);
+}
+
+fn consumed_nonces(count: u64) -> HashSet<[u8; 32]> {
+    let mut seen_nonces = HashSet::new();
+    for value in 0..count {
         let mut nonce = [0_u8; 32];
         nonce[24..].copy_from_slice(&value.to_be_bytes());
         seen_nonces.insert(nonce);
     }
-    seen_nonces.insert(crate::parse_seen_nonce(NONCE).unwrap());
-    let ctx = Context {
+    seen_nonces
+}
+
+// Run separately in CI, optimized and without other tests competing for the CPU.
+#[test]
+#[ignore = "run with --release --ignored --nocapture --test-threads=1"]
+fn replay_lookup_time_is_bounded_for_absent_nonce() {
+    if cfg!(debug_assertions) {
+        panic!("timing regression requires --release");
+    }
+    let i = input(84532, ASSET);
+    let empty = ctx_at(INSIDE_WINDOW);
+    let large = Context {
         verification_time: Some(INSIDE_WINDOW),
-        seen_nonces,
+        seen_nonces: consumed_nonces(500_000),
     };
-    let verdict = verify(&input(84532, ASSET), &ctx, Some(NETWORK)).unwrap();
-    assert_eq!(verdict.reason_code, ReasonCode::NonceReplay);
+    assert_eq!(large.seen_nonces.len(), 500_000);
+    assert!(!large
+        .seen_nonces
+        .contains(&crate::parse_seen_nonce(NONCE).unwrap()));
+
+    // Time the public verifier, excluding construction, with the target absent so a
+    // linear scan cannot stop early. Check every result to prevent an early-reject
+    // shortcut from looking like a performance improvement.
+    fn batch(i: &Input, ctx: &Context) -> Duration {
+        let start = Instant::now();
+        for _ in 0..64 {
+            let verdict = black_box(verify(black_box(i), black_box(ctx), Some(NETWORK)))
+                .expect("valid fixture");
+            assert!(verdict.valid);
+            assert_eq!(verdict.reason_code, ReasonCode::Valid);
+        }
+        start.elapsed()
+    }
+
+    batch(&i, &empty);
+    batch(&i, &large);
+    let mut empty_samples = Vec::new();
+    let mut large_samples = Vec::new();
+    for round in 0..5 {
+        // Alternate order and use medians to reduce warmup/scheduling noise.
+        if round % 2 == 0 {
+            empty_samples.push(batch(&i, &empty));
+            large_samples.push(batch(&i, &large));
+        } else {
+            large_samples.push(batch(&i, &large));
+            empty_samples.push(batch(&i, &empty));
+        }
+    }
+    empty_samples.sort_unstable();
+    large_samples.sort_unstable();
+    let empty_median = *empty_samples.get(2).expect("five empty-set samples");
+    let large_median = *large_samples.get(2).expect("five large-set samples");
+    eprintln!(
+        "absent nonce, median verify time: 0 entries {:?}; 500,000 entries {:?}",
+        empty_median / 64,
+        large_median / 64,
+    );
+    // This is a coarse regression gate, not a latency SLA. Fourfold headroom
+    // tolerates noisy CI hosts while catching a return to an O(n) replay scan.
+    assert!(
+        large_median <= empty_median * 4,
+        "500,000-entry verification exceeded 4x empty-set time: {large_median:?} vs {empty_median:?}"
+    );
 }
 
 #[test]
