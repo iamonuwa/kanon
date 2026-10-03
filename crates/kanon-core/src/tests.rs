@@ -282,10 +282,36 @@ fn context_rejects_malformed_seen_nonce_during_construction() {
 
 #[test]
 fn context_normalizes_and_deduplicates_seen_nonces_once() {
-    let upper = NONCE.to_ascii_uppercase();
+    // Uppercase hex digits behind the required lowercase prefix.
+    let upper = format!("0x{}", NONCE.trim_start_matches("0x").to_ascii_uppercase());
     let json = format!(r#"{{"seen_nonces":["{NONCE}","{upper}"]}}"#);
     let ctx = serde_json::from_str::<Context>(&json).expect("valid nonce set");
     assert_eq!(ctx.seen_nonces.len(), 1);
+}
+
+#[test]
+fn context_rejects_uppercase_0x_prefix() {
+    let nonce = format!("0X{}", NONCE.trim_start_matches("0x"));
+    let json = format!(r#"{{"seen_nonces":["{nonce}"]}}"#);
+    let err = serde_json::from_str::<Context>(&json).expect_err("0X prefix must be rejected");
+    assert!(
+        err.to_string().contains("0x-prefixed"),
+        "error must name the required prefix, got: {err}"
+    );
+}
+
+#[test]
+fn seen_nonce_requires_lowercase_0x_prefix() {
+    let digits = NONCE.trim_start_matches("0x");
+    assert!(matches!(
+        crate::parse_seen_nonce(&format!("0X{digits}")),
+        Err(crate::VerifyError::SeenNonce)
+    ));
+    assert!(matches!(
+        crate::parse_seen_nonce(digits),
+        Err(crate::VerifyError::SeenNonce)
+    ));
+    assert!(crate::parse_seen_nonce(NONCE).is_ok());
 }
 
 #[test]

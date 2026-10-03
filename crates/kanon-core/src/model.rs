@@ -102,10 +102,13 @@ pub struct Context {
 ///
 /// # Errors
 ///
-/// Returns [`VerifyError::SeenNonce`] unless `value` is a `0x`-prefixed 32-byte hexadecimal
-/// nonce. Hexadecimal case is ignored by decoding, so equivalent strings share one set entry.
+/// Returns [`VerifyError::SeenNonce`] unless `value` is a 32-byte hexadecimal nonce with a
+/// lowercase `0x` prefix, matching the schema pattern `^0x[0-9a-fA-F]{64}$`. An uppercase `0X`
+/// prefix is rejected. Hexadecimal digit case is ignored by decoding, so equivalent strings share
+/// one set entry.
 pub fn parse_seen_nonce(value: &str) -> Result<[u8; 32], VerifyError> {
-    if !value.starts_with("0x") && !value.starts_with("0X") {
+    // `B256` parsing alone would also accept `0X`; this guard is what enforces the spec.
+    if !value.starts_with("0x") {
         return Err(VerifyError::SeenNonce);
     }
     value

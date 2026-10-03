@@ -94,7 +94,7 @@ Pinned details that the generator MUST follow and the verifier MUST read:
 ```json
 {
   "id": "x402-evm-eip3009-cross-chain-replay-001",
-  "schema_version": "2.0.0",
+  "schema_version": "3.0.0",
   "protocol": "x402",
   "scheme": "exact",
   "network": "eip155:84532",
