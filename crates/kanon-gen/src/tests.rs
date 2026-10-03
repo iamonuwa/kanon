@@ -120,7 +120,7 @@ fn emitted_shape_is_locked() {
     );
     assert_eq!(
         value.get("schema_version").and_then(|v| v.as_str()),
-        Some("2.0.0")
+        Some("3.0.0")
     );
 
     let input = value
