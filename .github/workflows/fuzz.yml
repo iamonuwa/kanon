@@ -1,0 +1,42 @@
+name: Fuzz
+
+# Exercises the rule that the verifier never panics on adversarial input, beyond what unit tests
+# cover. Weekly and on demand rather than per PR, since a useful run takes minutes. A crash
+# fails the job and uploads the reproducing input as an artifact.
+on:
+  schedule:
+    - cron: "0 7 * * 1" # Monday 07:00 UTC, after CI
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify_vector:
+    name: fuzz (verify_vector)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Install Rust (nightly)
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: nightly
+      - name: Install cargo-fuzz (prebuilt)
+        uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+        with:
+          tool: cargo-fuzz
+      - name: Seed corpus from committed vectors
+        run: |
+          mkdir -p fuzz/corpus/verify_vector
+          find vectors -name '*.json' -exec cp {} fuzz/corpus/verify_vector/ \;
+      - name: Fuzz for 10 minutes
+        run: cargo +nightly fuzz run verify_vector -- -max_total_time=600
+      - name: Upload crash inputs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-artifacts
+          path: fuzz/artifacts

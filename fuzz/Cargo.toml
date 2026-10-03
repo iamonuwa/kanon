@@ -1,0 +1,25 @@
+# Fuzz targets for kanon-core. Kept outside the main workspace because cargo-fuzz needs a nightly
+# toolchain; run with `cargo +nightly fuzz run verify_vector` from the repository root.
+[package]
+name = "kanon-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+serde_json = "1"
+kanon-core = { path = "../crates/kanon-core" }
+
+[[bin]]
+name = "verify_vector"
+path = "fuzz_targets/verify_vector.rs"
+test = false
+doc = false
+bench = false
+
+# Standalone workspace, so the main workspace's pinned toolchain and lints do not apply here.
+[workspace]

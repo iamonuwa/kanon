@@ -1,0 +1,25 @@
+# Weekly dependency updates, grouped per ecosystem so each week is at most one PR per ecosystem.
+# Security updates are raised immediately regardless of this schedule.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      cargo:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: pip
+    directory: /crosscheck
+    schedule:
+      interval: weekly
+    groups:
+      crosscheck:
+        patterns: ["*"]

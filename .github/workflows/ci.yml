@@ -4,6 +4,10 @@ name: CI
 # tests (generator-vs-verifier self-check, byte-identity reproducibility check, schema validation,
 # negative-control verdict), a dependency audit, and an independent Python signature cross-check.
 # The weekly schedule surfaces a newly published advisory even without a commit.
+#
+# Job names are required status checks on `main`; renaming one requires updating branch
+# protection in the same change. Third-party actions are pinned to full commit SHAs (the trailing
+# comment names the release); Dependabot proposes updates.
 on:
   push:
     branches: [main]
@@ -21,40 +25,52 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   test:
     name: test (fmt, clippy, test)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Rust (stable, with rustfmt and clippy)
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
+      # The toolchain matches rust-toolchain.toml; keep the two in lockstep.
+      - name: Install Rust (1.92, with rustfmt and clippy)
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: "1.92"
           components: rustfmt, clippy
       - name: Cache cargo build
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Format
         run: cargo fmt --all --check
+      # --locked fails the build if Cargo.lock is out of date with Cargo.toml.
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
       - name: Nonce replay performance regression (release, isolated)
-        run: cargo test -p kanon-core --release replay_lookup_time_is_bounded_for_absent_nonce -- --ignored --nocapture --test-threads=1
+        run: cargo test -p kanon-core --release --locked replay_lookup_time_is_bounded_for_absent_nonce -- --ignored --nocapture --test-threads=1
+      - name: Docs
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --no-deps --locked
 
   audit:
     name: audit (dependency advisories)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
-      - name: Cache cargo build
-        uses: Swatinem/rust-cache@v2
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Install cargo-audit (prebuilt)
+        uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+        with:
+          tool: cargo-audit
       # Honors .cargo/audit.toml: the three accepted unmaintained advisories are ignored, while any
       # new or vulnerable advisory is an un-ignored warning and fails the job.
       - name: Audit
@@ -65,9 +81,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - name: Install dependencies (pinned)

@@ -71,3 +71,7 @@ The tooling is a Rust workspace under `crates/`. Before opening a PR, confirm:
 4. The corpus is reproducible (`kanon-gen --check` produces no diff against committed files).
 
 CI runs the same checks. The corpus-check and reproducibility gates are what lock the corpus, the verifier, and the source together: none can drift from the others without turning CI red. A PR that turns CI red on any of these is not ready.
+
+CI runs automatically on pull requests from forks. If your GitHub account is new, a maintainer must approve the first run; until CI is green the PR cannot be merged.
+
+The verifier also has a fuzz target under `fuzz/` (`cargo +nightly fuzz run verify_vector`), run weekly in CI. Any panic it finds is a bug.
