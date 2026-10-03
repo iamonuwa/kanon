@@ -32,8 +32,10 @@ jobs:
         run: |
           mkdir -p fuzz/corpus/verify_vector
           find vectors -name '*.json' -exec cp {} fuzz/corpus/verify_vector/ \;
+      # The prebuilt cargo-fuzz is a musl binary and defaults to its own target, where the
+      # sanitizer cannot link; build for the runner's glibc target instead.
       - name: Fuzz for 10 minutes
-        run: cargo +nightly fuzz run verify_vector -- -max_total_time=600
+        run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu verify_vector -- -max_total_time=600
       - name: Upload crash inputs
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
