@@ -33,7 +33,7 @@ kanon verify payment.json --network eip155:84532 --seen-nonce 0xabc...
 kanon verify - < payment.json
 ```
 
-`--now` sets the verification time in unix seconds and defaults to the system clock.`--no-time` omits the verification time and skips the temporal checks. `--seen-nonce` (repeatable) and `--seen-nonces <file>` supply the consumed-nonce set for the replay check.`--network` sets the target network for the network-mismatch check.
+`--now` sets the verification time in unix seconds and defaults to the system clock. `--no-time` omits the verification time and skips the temporal checks. `--seen-nonce` (repeatable) and `--seen-nonces <file>` supply the consumed-nonce set for the replay check; each value must be `0x`-prefixed 32-byte hex, duplicates are normalized once, and the CLI accepts at most 100,000 unique entries. `--network` sets the target network for the network-mismatch check.
 
 For a vector file, the context and target network come from the vector itself and the clock flags are ignored, so the verdict is reproducible.
 

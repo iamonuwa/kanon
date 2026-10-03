@@ -237,5 +237,19 @@ fn binary_exit_codes() {
         .code();
     assert_eq!(code, Some(2));
 
+    // malformed consumed nonce -> 2 before verification
+    let code = Command::new(bin)
+        .args([
+            "verify",
+            bare_path,
+            "--no-time",
+            "--seen-nonce",
+            "0xdeadbeef",
+        ])
+        .status()
+        .expect("run")
+        .code();
+    assert_eq!(code, Some(2));
+
     std::fs::remove_dir_all(&dir).ok();
 }

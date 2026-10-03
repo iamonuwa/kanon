@@ -4,6 +4,10 @@
 //! own digest only to exercise the recovery path. The cross implementation check, generator
 //! against verifier, lives in the kanon-cli self check.
 
+use std::collections::HashSet;
+use std::hint::black_box;
+use std::time::{Duration, Instant};
+
 use alloy_primitives::{hex, Address, Signature, B256, U256};
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
@@ -85,7 +89,7 @@ fn input(chain_id: u64, contract: &str) -> Input {
 fn ctx_at(time: i64) -> Context {
     Context {
         verification_time: Some(time),
-        seen_nonces: Vec::new(),
+        seen_nonces: HashSet::new(),
     }
 }
 
@@ -165,10 +169,123 @@ fn at_valid_before_is_expired() {
 fn seen_nonce_is_replay() {
     let ctx = Context {
         verification_time: Some(INSIDE_WINDOW),
-        seen_nonces: vec![NONCE.to_string()],
+        seen_nonces: HashSet::from([crate::parse_seen_nonce(NONCE).unwrap()]),
     };
     let verdict = verify(&input(84532, ASSET), &ctx, Some(NETWORK)).unwrap();
     assert_eq!(verdict.reason_code, ReasonCode::NonceReplay);
+}
+
+#[test]
+fn replay_lookup_handles_a_large_consumed_set() {
+    let i = input(84532, ASSET);
+    let mut ctx = Context {
+        verification_time: Some(INSIDE_WINDOW),
+        seen_nonces: consumed_nonces(100_000),
+    };
+    assert_eq!(ctx.seen_nonces.len(), 100_000);
+    assert!(!ctx
+        .seen_nonces
+        .contains(&crate::parse_seen_nonce(NONCE).unwrap()));
+    let verdict = verify(&i, &ctx, Some(NETWORK)).unwrap();
+    assert!(verdict.valid);
+    assert_eq!(verdict.reason_code, ReasonCode::Valid);
+
+    ctx.seen_nonces
+        .insert(crate::parse_seen_nonce(NONCE).unwrap());
+    let verdict = verify(&i, &ctx, Some(NETWORK)).unwrap();
+    assert!(!verdict.valid);
+    assert_eq!(verdict.reason_code, ReasonCode::NonceReplay);
+}
+
+fn consumed_nonces(count: u64) -> HashSet<[u8; 32]> {
+    let mut seen_nonces = HashSet::new();
+    for value in 0..count {
+        let mut nonce = [0_u8; 32];
+        nonce[24..].copy_from_slice(&value.to_be_bytes());
+        seen_nonces.insert(nonce);
+    }
+    seen_nonces
+}
+
+// Run separately in CI, optimized and without other tests competing for the CPU.
+#[test]
+#[ignore = "run with --release --ignored --nocapture --test-threads=1"]
+fn replay_lookup_time_is_bounded_for_absent_nonce() {
+    if cfg!(debug_assertions) {
+        panic!("timing regression requires --release");
+    }
+    let i = input(84532, ASSET);
+    let empty = ctx_at(INSIDE_WINDOW);
+    let large = Context {
+        verification_time: Some(INSIDE_WINDOW),
+        seen_nonces: consumed_nonces(500_000),
+    };
+    assert_eq!(large.seen_nonces.len(), 500_000);
+    assert!(!large
+        .seen_nonces
+        .contains(&crate::parse_seen_nonce(NONCE).unwrap()));
+
+    // Time the public verifier, excluding construction, with the target absent so a
+    // linear scan cannot stop early. Check every result to prevent an early-reject
+    // shortcut from looking like a performance improvement.
+    fn batch(i: &Input, ctx: &Context) -> Duration {
+        let start = Instant::now();
+        for _ in 0..64 {
+            let verdict = black_box(verify(black_box(i), black_box(ctx), Some(NETWORK)))
+                .expect("valid fixture");
+            assert!(verdict.valid);
+            assert_eq!(verdict.reason_code, ReasonCode::Valid);
+        }
+        start.elapsed()
+    }
+
+    batch(&i, &empty);
+    batch(&i, &large);
+    let mut empty_samples = Vec::new();
+    let mut large_samples = Vec::new();
+    for round in 0..5 {
+        // Alternate order and use medians to reduce warmup/scheduling noise.
+        if round % 2 == 0 {
+            empty_samples.push(batch(&i, &empty));
+            large_samples.push(batch(&i, &large));
+        } else {
+            large_samples.push(batch(&i, &large));
+            empty_samples.push(batch(&i, &empty));
+        }
+    }
+    empty_samples.sort_unstable();
+    large_samples.sort_unstable();
+    let empty_median = *empty_samples.get(2).expect("five empty-set samples");
+    let large_median = *large_samples.get(2).expect("five large-set samples");
+    eprintln!(
+        "absent nonce, median verify time: 0 entries {:?}; 500,000 entries {:?}",
+        empty_median / 64,
+        large_median / 64,
+    );
+    // This is a coarse regression gate, not a latency SLA. Fourfold headroom
+    // tolerates noisy CI hosts while catching a return to an O(n) replay scan.
+    assert!(
+        large_median <= empty_median * 4,
+        "500,000-entry verification exceeded 4x empty-set time: {large_median:?} vs {empty_median:?}"
+    );
+}
+
+#[test]
+fn context_rejects_malformed_seen_nonce_during_construction() {
+    let json = r#"{"verification_time":1740672100,"seen_nonces":["0xdeadbeef"]}"#;
+    let err = serde_json::from_str::<Context>(json).expect_err("short nonce must be rejected");
+    assert!(
+        err.to_string().contains("32 byte"),
+        "error must explain the nonce width, got: {err}"
+    );
+}
+
+#[test]
+fn context_normalizes_and_deduplicates_seen_nonces_once() {
+    let upper = NONCE.to_ascii_uppercase();
+    let json = format!(r#"{{"seen_nonces":["{NONCE}","{upper}"]}}"#);
+    let ctx = serde_json::from_str::<Context>(&json).expect("valid nonce set");
+    assert_eq!(ctx.seen_nonces.len(), 1);
 }
 
 #[test]
@@ -257,7 +374,7 @@ fn malformed_input_never_panics() {
     // Negative verification time.
     let ctx = Context {
         verification_time: Some(-1),
-        seen_nonces: Vec::new(),
+        seen_nonces: HashSet::new(),
     };
     assert!(verify(&base, &ctx, Some(NETWORK)).is_err());
 }

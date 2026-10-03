@@ -87,13 +87,9 @@ pub fn verify(
         }
     }
 
-    // Nonce replay: comparing the normalized nonce against the consumed set.
-    let nonce_norm = normalize_hex(&auth.nonce);
-    if ctx
-        .seen_nonces
-        .iter()
-        .any(|seen| normalize_hex(seen) == nonce_norm)
-    {
+    // Nonce replay: the context normalizes and deduplicates once at construction, so verification
+    // is one O(1) binary-set lookup with no per-entry string allocation.
+    if ctx.seen_nonces.contains(&<[u8; 32]>::from(nonce)) {
         return Ok(reject(ReasonCode::NonceReplay));
     }
 
@@ -116,15 +112,6 @@ fn reject(reason_code: ReasonCode) -> Expected {
         valid: false,
         reason_code,
     }
-}
-
-/// Lowercases a hex value and drops any `0x` prefix so nonces compare case insensitively.
-fn normalize_hex(value: &str) -> String {
-    value
-        .strip_prefix("0x")
-        .or_else(|| value.strip_prefix("0X"))
-        .unwrap_or(value)
-        .to_ascii_lowercase()
 }
 
 /// Parses an EVM address case insensitively.

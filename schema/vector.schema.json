@@ -136,7 +136,8 @@
           "type": "array",
           "description": "Nonces already consumed or settled before this verification.",
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{64}$"
           }
         }
       }

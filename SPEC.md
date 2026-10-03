@@ -188,6 +188,8 @@ The reference verifier is **stateless and offline**. It reaches no network, hold
 | `verification_time` | integer (unix seconds) | The instant verification is deemed to occur, used for `validAfter` / `validBefore`. | Temporal validity is not under test for this vector. A verifier MUST NOT fail solely on temporal grounds when `verification_time` is absent. |
 | `seen_nonces`       | string[]               | Nonces already consumed or settled before this verification.                        | Empty set. No replay is asserted.                                                                                                            |
 
+Each `seen_nonces` entry MUST be a `0x`-prefixed, 32-byte hexadecimal nonce matching `^0x[0-9a-fA-F]{64}$`; hexadecimal digits are case-insensitive.
+
 Any vector whose verdict depends on time MUST include `verification_time`; any vector whose
 verdict depends on replay MUST include the relevant nonce in `seen_nonces`. This keeps
 temporal and replay verdicts reproducible rather than dependent on when the verifier runs.

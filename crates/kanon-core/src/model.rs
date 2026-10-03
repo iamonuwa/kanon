@@ -7,7 +7,12 @@
 //! The requirements travel inside `input.accepted`, exactly as on the wire. The top-level
 //! `network` is the verifier's target and is compared against `input.accepted.network`.
 
-use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+
+use alloy_primitives::B256;
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
+
+use crate::error::VerifyError;
 
 /// A single Kanon test vector, reduced to the fields the verifier consumes.
 #[derive(Debug, Clone, Deserialize)]
@@ -89,8 +94,35 @@ pub struct Context {
     #[serde(default)]
     pub verification_time: Option<i64>,
     /// Nonces already consumed or settled before this verification.
-    #[serde(default)]
-    pub seen_nonces: Vec<String>,
+    #[serde(default, deserialize_with = "deserialize_seen_nonces")]
+    pub seen_nonces: HashSet<[u8; 32]>,
+}
+
+/// Parses one consumed nonce into its normalized binary representation.
+///
+/// # Errors
+///
+/// Returns [`VerifyError::SeenNonce`] unless `value` is a `0x`-prefixed 32-byte hexadecimal
+/// nonce. Hexadecimal case is ignored by decoding, so equivalent strings share one set entry.
+pub fn parse_seen_nonce(value: &str) -> Result<[u8; 32], VerifyError> {
+    if !value.starts_with("0x") && !value.starts_with("0X") {
+        return Err(VerifyError::SeenNonce);
+    }
+    value
+        .parse::<B256>()
+        .map(<[u8; 32]>::from)
+        .map_err(|_| VerifyError::SeenNonce)
+}
+
+fn deserialize_seen_nonces<'de, D>(deserializer: D) -> Result<HashSet<[u8; 32]>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let values = Vec::<String>::deserialize(deserializer)?;
+    values
+        .into_iter()
+        .map(|value| parse_seen_nonce(&value).map_err(D::Error::custom))
+        .collect()
 }
 
 /// A verdict, the pair of an accept flag and a reason code.

@@ -22,6 +22,7 @@ mod tests;
 
 pub use error::VerifyError;
 pub use model::{
-    Accepted, Authorization, Context, ExactPayload, Expected, Extra, Input, ReasonCode, Vector,
+    parse_seen_nonce, Accepted, Authorization, Context, ExactPayload, Expected, Extra, Input,
+    ReasonCode, Vector,
 };
 pub use verify::verify;
