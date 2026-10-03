@@ -1,0 +1,7 @@
+# Direct dependencies of the independent cross-checker. requirements.txt is generated from this
+# file and pins every transitive dependency; regenerate it after editing, from crosscheck/:
+#   pip-compile --strip-extras requirements.in
+# Dependabot recognizes the pip-compile header and updates the pinned set as a whole.
+eth-account
+eth-utils
+pytest
