@@ -14,23 +14,24 @@ cytoolz==1.1.0
     # via eth-utils
 eth-abi==6.0.0b1
     # via eth-account
-eth-account==0.13.7
+eth-account==0.14.0
     # via -r requirements.in
 eth-hash==0.8.0
     # via eth-utils
-eth-keyfile==0.8.1
+eth-keyfile==0.10.0
     # via eth-account
-eth-keys==0.7.0
+eth-keys==0.8.0
     # via
     #   eth-account
     #   eth-keyfile
-eth-rlp==2.2.0
+eth-rlp==3.0.0
     # via eth-account
 eth-typing==6.0.0
     # via
     #   eth-abi
     #   eth-keys
     #   eth-utils
+    #   py-ecc
 eth-utils==6.0.0
     # via
     #   -r requirements.in
@@ -39,8 +40,9 @@ eth-utils==6.0.0
     #   eth-keyfile
     #   eth-keys
     #   eth-rlp
+    #   py-ecc
     #   rlp
-hexbytes==1.3.1
+hexbytes==2.0.0
     # via
     #   eth-account
     #   eth-rlp
@@ -52,6 +54,8 @@ parsimonious==0.10.0
     # via eth-abi
 pluggy==1.6.0
     # via pytest
+py-ecc==8.0.0
+    # via eth-keyfile
 pycryptodome==3.23.0
     # via eth-keyfile
 pydantic==2.13.4
