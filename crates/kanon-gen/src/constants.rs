@@ -30,6 +30,25 @@ pub const NONCE_NOT_YET_VALID: &str =
 pub const NONCE_AMOUNT_INSUFFICIENT: &str =
     "0x0303030303030303030303030303030303030303030303030303030303030303";
 
+/// Distinct fixed nonce for the domain name mismatch vector.
+pub const NONCE_DOMAIN_NAME_MISMATCH: &str =
+    "0x0404040404040404040404040404040404040404040404040404040404040404";
+
+/// Arc mainnet USDC (ERC-20 interface of the native token).
+pub const ASSET_ARC_USDC: &str = "0x3600000000000000000000000000000000000000";
+
+/// The CAIP-2 Arc mainnet network.
+pub const NETWORK_ARC: &str = "eip155:5042";
+
+/// The Arc mainnet chain id.
+pub const CHAIN_ARC: u64 = 5042;
+
+/// The EIP-712 domain name of Arc USDC, read on chain via `name()` on 2026-10-03.
+pub const TOKEN_NAME_ARC: &str = "USDC";
+
+/// The EIP-712 domain name of Base mainnet USDC, the wrong name for the domain name mismatch vector.
+pub const TOKEN_NAME_BASE_MAINNET: &str = "USD Coin";
+
 /// The CAIP-2 target network, Base Sepolia.
 pub const NETWORK_BASE_SEPOLIA: &str = "eip155:84532";
 

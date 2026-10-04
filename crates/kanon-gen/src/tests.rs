@@ -63,13 +63,13 @@ fn flip_is_an_involution() {
 }
 
 #[test]
-fn corpus_has_nine_unique_vectors() {
+fn corpus_has_ten_unique_vectors() {
     let corpus = build_corpus().unwrap();
-    assert_eq!(corpus.len(), 9);
+    assert_eq!(corpus.len(), 10);
     let mut ids: Vec<&str> = corpus.iter().map(|v| v.id.as_str()).collect();
     ids.sort_unstable();
     ids.dedup();
-    assert_eq!(ids.len(), 9);
+    assert_eq!(ids.len(), 10);
 }
 
 #[test]
@@ -160,5 +160,55 @@ fn emitted_shape_is_locked() {
     assert!(
         pos("\"authorization\"") < pos("\"signature\""),
         "payload must emit authorization before signature"
+    );
+}
+
+/// Recovers the signer of a payment object against the digest rebuilt from its accepted domain.
+fn recover_against_accepted(object: &crate::model::PaymentObject) -> Address {
+    let a = &object.payload.authorization;
+    let auth = AuthFields {
+        from: a.from.parse::<Address>().unwrap(),
+        to: a.to.parse::<Address>().unwrap(),
+        value: U256::from_str_radix(&a.value, 10).unwrap(),
+        valid_after: U256::from_str_radix(&a.valid_after, 10).unwrap(),
+        valid_before: U256::from_str_radix(&a.valid_before, 10).unwrap(),
+        nonce: a.nonce.parse::<B256>().unwrap(),
+    };
+    let accepted = &object.accepted;
+    let domain = DomainFields {
+        name: &accepted.extra.name,
+        version: &accepted.extra.version,
+        chain_id: accepted
+            .network
+            .strip_prefix("eip155:")
+            .unwrap()
+            .parse::<u64>()
+            .unwrap(),
+        verifying_contract: accepted.asset.parse::<Address>().unwrap(),
+    };
+    let bytes = alloy_primitives::hex::decode(&object.payload.signature).unwrap();
+    let signature = alloy_primitives::Signature::try_from(bytes.as_slice()).unwrap();
+    signature
+        .recover_address_from_prehash(&eip712::digest(&auth, &domain))
+        .unwrap()
+}
+
+#[test]
+fn domain_name_is_the_only_fault() {
+    let signer: PrivateKeySigner = PAYER_KEY.parse().unwrap();
+    let control = crate::scenarios::arc_control().unwrap();
+    assert_eq!(recover_against_accepted(&control), signer.address());
+    let corpus = build_corpus().unwrap();
+    let vector = corpus
+        .iter()
+        .find(|v| v.id == "x402-evm-eip3009-domain-name-mismatch-001")
+        .unwrap();
+    assert_ne!(recover_against_accepted(&vector.input), signer.address());
+    let mut swapped = vector.input.clone();
+    swapped.payload.signature = control.payload.signature.clone();
+    assert_eq!(
+        serde_json::to_value(&swapped).unwrap(),
+        serde_json::to_value(&control).unwrap(),
+        "vector and control differ only in the signature"
     );
 }

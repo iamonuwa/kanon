@@ -8,11 +8,13 @@ use alloy_primitives::{Address, B256, U256};
 use alloy_signer_local::PrivateKeySigner;
 
 use crate::constants::{
-    ASSET_BASE_MAINNET_USDC, ASSET_BASE_SEPOLIA_USDC, CHAIN_BASE_MAINNET, CHAIN_BASE_SEPOLIA,
-    DESCRIPTION, MAX_TIMEOUT_SECONDS, MIME_TYPE, NETWORK_BASE_MAINNET, NETWORK_BASE_SEPOLIA, NONCE,
-    NONCE_AMOUNT_INSUFFICIENT, NONCE_NETWORK_MISMATCH, NONCE_NOT_YET_VALID, NOT_YET_VALID_AFTER,
-    NOT_YET_VALID_BEFORE, PAYER_KEY, PAY_TO, RESOURCE, SCHEMA_VERSION, TOKEN_NAME, TOKEN_VERSION,
-    UNDERPAY_VALUE, VALID_AFTER, VALID_BEFORE, VALUE, VERIFY_EXPIRED, VERIFY_INSIDE, X402_VERSION,
+    ASSET_ARC_USDC, ASSET_BASE_MAINNET_USDC, ASSET_BASE_SEPOLIA_USDC, CHAIN_ARC,
+    CHAIN_BASE_MAINNET, CHAIN_BASE_SEPOLIA, DESCRIPTION, MAX_TIMEOUT_SECONDS, MIME_TYPE,
+    NETWORK_ARC, NETWORK_BASE_MAINNET, NETWORK_BASE_SEPOLIA, NONCE, NONCE_AMOUNT_INSUFFICIENT,
+    NONCE_DOMAIN_NAME_MISMATCH, NONCE_NETWORK_MISMATCH, NONCE_NOT_YET_VALID, NOT_YET_VALID_AFTER,
+    NOT_YET_VALID_BEFORE, PAYER_KEY, PAY_TO, RESOURCE, SCHEMA_VERSION, TOKEN_NAME, TOKEN_NAME_ARC,
+    TOKEN_NAME_BASE_MAINNET, TOKEN_VERSION, UNDERPAY_VALUE, VALID_AFTER, VALID_BEFORE, VALUE,
+    VERIFY_EXPIRED, VERIFY_INSIDE, X402_VERSION,
 };
 use crate::eip712::{self, AuthFields, DomainFields};
 use crate::error::GenError;
@@ -164,7 +166,79 @@ pub fn build_corpus() -> Result<Vec<Vector>, GenError> {
             Some(ctx_at(VERIFY_INSIDE)),
             reject(ReasonCode::AmountInsufficient),
         ),
+        vector_with_target(
+            "x402-evm-eip3009-domain-name-mismatch-001",
+            "Domain name mismatch: signature bound to EIP-712 name \"USD Coin\" presented to an eip155:5042 server whose token name is \"USDC\".",
+            &["EIP-712", "EIP-3009", "CWE-347"],
+            "The authorization is signed under the Arc chainId and verifying contract but with the \
+             Base mainnet USDC domain name \"USD Coin\". Arc USDC returns name() \"USDC\" and \
+             version() \"2\" on chain. Reconstructing the digest with the accepted domain name \
+             yields a recovered address that is not authorization.from.",
+            NETWORK_ARC,
+            arc_payload(&signer, &from, TOKEN_NAME_BASE_MAINNET)?,
+            Some(ctx_at(VERIFY_INSIDE)),
+            reject(ReasonCode::SignerMismatch),
+        ),
     ])
+}
+
+/// Signs an authorization on Arc under the given EIP-712 domain name and emits it against the
+/// Arc requirements, whose domain name is the on chain `TOKEN_NAME_ARC`.
+fn arc_payload(
+    signer: &PrivateKeySigner,
+    from: &str,
+    signing_name: &str,
+) -> Result<PaymentObject, GenError> {
+    let mut auth = auth_fields(signer.address())?;
+    auth.nonce = NONCE_DOMAIN_NAME_MISMATCH
+        .parse::<B256>()
+        .map_err(|_| GenError::Nonce(NONCE_DOMAIN_NAME_MISMATCH.to_string()))?;
+    let verifying_contract = ASSET_ARC_USDC
+        .parse::<Address>()
+        .map_err(|_| GenError::Address(ASSET_ARC_USDC.to_string()))?;
+    let domain = DomainFields {
+        name: signing_name,
+        version: TOKEN_VERSION,
+        chain_id: CHAIN_ARC,
+        verifying_contract,
+    };
+    let signature = sign::sign(signer, eip712::digest(&auth, &domain))?;
+    Ok(PaymentObject {
+        x402_version: X402_VERSION,
+        payload: ExactPayload {
+            authorization: Authorization {
+                from: from.to_string(),
+                to: PAY_TO.to_string(),
+                value: VALUE.to_string(),
+                valid_after: VALID_AFTER.to_string(),
+                valid_before: VALID_BEFORE.to_string(),
+                nonce: NONCE_DOMAIN_NAME_MISMATCH.to_string(),
+            },
+            signature: sig_to_wire(&signature),
+        },
+        resource: resource(),
+        accepted: Accepted {
+            scheme: "exact".to_string(),
+            network: NETWORK_ARC.to_string(),
+            amount: VALUE.to_string(),
+            asset: ASSET_ARC_USDC.to_string(),
+            pay_to: PAY_TO.to_string(),
+            max_timeout_seconds: MAX_TIMEOUT_SECONDS,
+            extra: Extra {
+                name: TOKEN_NAME_ARC.to_string(),
+                version: TOKEN_VERSION.to_string(),
+            },
+        },
+    })
+}
+
+/// The Arc control: the same mandate signed under the correct on chain domain name. Not part of
+/// the corpus, it exists so tests can prove the domain name is the only fault.
+#[cfg(test)]
+pub(crate) fn arc_control() -> Result<PaymentObject, GenError> {
+    let signer: PrivateKeySigner = PAYER_KEY.parse().map_err(|_| GenError::Key)?;
+    let from = signer.address().to_checksum(None);
+    arc_payload(&signer, &from, TOKEN_NAME_ARC)
 }
 
 /// Parses the baseline authorization fields into their EVM types.

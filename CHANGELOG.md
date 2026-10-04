@@ -6,6 +6,15 @@ and any change to a reason code is a breaking change that requires a version bum
 
 Versions tagged `corpus-vN.N.N` mark frozen, citable states of the corpus.
 
+## [Unreleased]
+
+### Added
+
+- `x402-evm-eip3009-domain-name-mismatch-001`: an authorization signed with the Base mainnet
+  USDC EIP-712 name `"USD Coin"` presented to an `eip155:5042` (Arc) server whose USDC name is
+  `"USDC"`. Expected `SIGNER_MISMATCH`. Both names and both versions (`"2"`) were read on chain
+  on 2026-10-03.
+
 ## [corpus-v2.0.0] - 2026-10-03
 
 Ships vector format 3.0.0 with reason-code registry 2.0.0. The corpus release version and the
