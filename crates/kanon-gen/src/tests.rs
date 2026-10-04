@@ -2,15 +2,16 @@
 //!
 //! These cover the malleability transform and deterministic, reproducible output.
 
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{Address, Signature, B256, U256};
 use alloy_signer_local::PrivateKeySigner;
 
 use crate::constants::{
-    ASSET_BASE_SEPOLIA_USDC, CHAIN_BASE_SEPOLIA, NONCE, PAYER_KEY, PAY_TO, TOKEN_NAME,
-    TOKEN_VERSION, VALID_AFTER, VALID_BEFORE, VALUE,
+    ASSET_ARC_USDC, ASSET_BASE_SEPOLIA_USDC, CHAIN_ARC, CHAIN_BASE_SEPOLIA, NONCE,
+    NONCE_DOMAIN_NAME_MISMATCH, PAYER_KEY, PAY_TO, TOKEN_NAME, TOKEN_NAME_ARC, TOKEN_VERSION,
+    VALID_AFTER, VALID_BEFORE, VALUE,
 };
 use crate::eip712::{self, AuthFields, DomainFields};
-use crate::scenarios::build_corpus;
+use crate::scenarios::{build_corpus, domain_name_mismatch_control};
 use crate::sign::{self, flip_to_high_s, SECP256K1_N};
 
 fn baseline_digest_and_signer() -> (PrivateKeySigner, Address, B256) {
@@ -63,13 +64,61 @@ fn flip_is_an_involution() {
 }
 
 #[test]
-fn corpus_has_nine_unique_vectors() {
+fn corpus_has_ten_unique_vectors() {
     let corpus = build_corpus().unwrap();
-    assert_eq!(corpus.len(), 9);
+    assert_eq!(corpus.len(), 10);
     let mut ids: Vec<&str> = corpus.iter().map(|v| v.id.as_str()).collect();
     ids.sort_unstable();
     ids.dedup();
-    assert_eq!(ids.len(), 9);
+    assert_eq!(ids.len(), 10);
+}
+
+#[test]
+fn domain_name_is_the_only_fault() {
+    let signer: PrivateKeySigner = PAYER_KEY.parse().unwrap();
+    let from = signer.address();
+    let corpus = build_corpus().unwrap();
+    let vector = &corpus
+        .iter()
+        .find(|v| v.id == "x402-evm-eip3009-domain-name-mismatch-001")
+        .expect("domain name mismatch vector present")
+        .input;
+    let control = domain_name_mismatch_control(&signer, &from.to_checksum(None)).unwrap();
+
+    // The digest a verifier reconstructs from accepted: Arc chain id, Arc contract, extra name.
+    let auth = AuthFields {
+        from,
+        to: PAY_TO.parse::<Address>().unwrap(),
+        value: U256::from_str_radix(VALUE, 10).unwrap(),
+        valid_after: U256::from_str_radix(VALID_AFTER, 10).unwrap(),
+        valid_before: U256::from_str_radix(VALID_BEFORE, 10).unwrap(),
+        nonce: NONCE_DOMAIN_NAME_MISMATCH.parse::<B256>().unwrap(),
+    };
+    let domain = DomainFields {
+        name: TOKEN_NAME_ARC,
+        version: TOKEN_VERSION,
+        chain_id: CHAIN_ARC,
+        verifying_contract: ASSET_ARC_USDC.parse::<Address>().unwrap(),
+    };
+    let digest = eip712::digest(&auth, &domain);
+    let recover = |wire: &str| {
+        wire.parse::<Signature>()
+            .unwrap()
+            .recover_address_from_prehash(&digest)
+            .unwrap()
+    };
+
+    assert_eq!(recover(&control.payload.signature), from);
+    assert_ne!(recover(&vector.payload.signature), from);
+
+    // Equal once the signature is blanked, so nothing but the signed name differs.
+    let blank = |p: &crate::PaymentObject| {
+        let mut p = p.clone();
+        p.payload.signature = String::new();
+        serde_json::to_value(p).unwrap()
+    };
+    assert_ne!(control.payload.signature, vector.payload.signature);
+    assert_eq!(blank(&control), blank(vector));
 }
 
 #[test]

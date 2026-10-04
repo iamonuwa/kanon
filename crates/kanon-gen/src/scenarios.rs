@@ -8,11 +8,13 @@ use alloy_primitives::{Address, B256, U256};
 use alloy_signer_local::PrivateKeySigner;
 
 use crate::constants::{
-    ASSET_BASE_MAINNET_USDC, ASSET_BASE_SEPOLIA_USDC, CHAIN_BASE_MAINNET, CHAIN_BASE_SEPOLIA,
-    DESCRIPTION, MAX_TIMEOUT_SECONDS, MIME_TYPE, NETWORK_BASE_MAINNET, NETWORK_BASE_SEPOLIA, NONCE,
-    NONCE_AMOUNT_INSUFFICIENT, NONCE_NETWORK_MISMATCH, NONCE_NOT_YET_VALID, NOT_YET_VALID_AFTER,
-    NOT_YET_VALID_BEFORE, PAYER_KEY, PAY_TO, RESOURCE, SCHEMA_VERSION, TOKEN_NAME, TOKEN_VERSION,
-    UNDERPAY_VALUE, VALID_AFTER, VALID_BEFORE, VALUE, VERIFY_EXPIRED, VERIFY_INSIDE, X402_VERSION,
+    ASSET_ARC_USDC, ASSET_BASE_MAINNET_USDC, ASSET_BASE_SEPOLIA_USDC, CHAIN_ARC,
+    CHAIN_BASE_MAINNET, CHAIN_BASE_SEPOLIA, DESCRIPTION, MAX_TIMEOUT_SECONDS, MIME_TYPE,
+    NETWORK_ARC, NETWORK_BASE_MAINNET, NETWORK_BASE_SEPOLIA, NONCE, NONCE_AMOUNT_INSUFFICIENT,
+    NONCE_DOMAIN_NAME_MISMATCH, NONCE_NETWORK_MISMATCH, NONCE_NOT_YET_VALID, NOT_YET_VALID_AFTER,
+    NOT_YET_VALID_BEFORE, PAYER_KEY, PAY_TO, RESOURCE, SCHEMA_VERSION, TOKEN_NAME, TOKEN_NAME_ARC,
+    TOKEN_NAME_BASE_MAINNET, TOKEN_VERSION, UNDERPAY_VALUE, VALID_AFTER, VALID_BEFORE, VALUE,
+    VERIFY_EXPIRED, VERIFY_INSIDE, X402_VERSION,
 };
 use crate::eip712::{self, AuthFields, DomainFields};
 use crate::error::GenError;
@@ -164,7 +166,55 @@ pub fn build_corpus() -> Result<Vec<Vector>, GenError> {
             Some(ctx_at(VERIFY_INSIDE)),
             reject(ReasonCode::AmountInsufficient),
         ),
+        vector_with_target(
+            "x402-evm-eip3009-domain-name-mismatch-001",
+            "EIP-712 domain name mismatch: signature bound to name \"USD Coin\" presented for a token whose domain name is \"USDC\".",
+            &["EIP-712", "EIP-3009", "CWE-347"],
+            "The authorization was signed for Arc mainnet USDC (chainId 5042) under the EIP-712 \
+             domain name \"USD Coin\", the name Base mainnet USDC reports, while the Arc \
+             contract's name() is \"USDC\". Reconstructing the digest with the name from \
+             accepted.extra yields a recovered address that is not authorization.from.",
+            NETWORK_ARC,
+            arc_payload(&signer, &from, TOKEN_NAME_BASE_MAINNET)?,
+            Some(ctx_at(VERIFY_INSIDE)),
+            reject(ReasonCode::SignerMismatch),
+        ),
     ])
+}
+
+/// The correctly named control for the domain name mismatch vector.
+///
+/// It signs the same mandate under the on-chain domain name, so it differs from the vector only in
+/// the signature and recovers to the signer.
+#[cfg(test)]
+pub(crate) fn domain_name_mismatch_control(
+    signer: &PrivateKeySigner,
+    from: &str,
+) -> Result<PaymentObject, GenError> {
+    arc_payload(signer, from, TOKEN_NAME_ARC)
+}
+
+/// Signs the baseline authorization for Arc mainnet USDC under a given EIP-712 domain name.
+///
+/// Chain id, verifying contract, and the emitted requirements are always Arc's, so the domain
+/// name is the only signed input that can differ from what the verifier reconstructs.
+fn arc_payload(
+    signer: &PrivateKeySigner,
+    from: &str,
+    domain_name: &str,
+) -> Result<PaymentObject, GenError> {
+    signed_payload_named(
+        signer,
+        from,
+        VALUE,
+        VALID_AFTER,
+        VALID_BEFORE,
+        NONCE_DOMAIN_NAME_MISMATCH,
+        domain_name,
+        CHAIN_ARC,
+        ASSET_ARC_USDC,
+        accepted_arc(),
+    )
 }
 
 /// Parses the baseline authorization fields into their EVM types.
@@ -192,11 +242,22 @@ fn sign_under(
     chain_id: u64,
     contract: &str,
 ) -> Result<alloy_primitives::Signature, GenError> {
+    sign_under_named(signer, auth, TOKEN_NAME, chain_id, contract)
+}
+
+/// Signs an authorization under a given domain name, chain id, and verifying contract.
+fn sign_under_named(
+    signer: &PrivateKeySigner,
+    auth: &AuthFields,
+    name: &str,
+    chain_id: u64,
+    contract: &str,
+) -> Result<alloy_primitives::Signature, GenError> {
     let verifying_contract = contract
         .parse::<Address>()
         .map_err(|_| GenError::Address(contract.to_string()))?;
     let domain = DomainFields {
-        name: TOKEN_NAME,
+        name,
         version: TOKEN_VERSION,
         chain_id,
         verifying_contract,
@@ -224,6 +285,42 @@ fn signed_payload(
     chain_id: u64,
     contract: &str,
 ) -> Result<PaymentObject, GenError> {
+    signed_payload_named(
+        signer,
+        from,
+        value,
+        valid_after,
+        valid_before,
+        nonce,
+        TOKEN_NAME,
+        chain_id,
+        contract,
+        accepted(),
+    )
+}
+
+/// Signs an authorization under a given domain name and emits it with the given requirements.
+///
+/// [`signed_payload`] is this with the baseline name and requirements.
+///
+/// # Errors
+///
+/// Returns a [`GenError`] if a field fails to parse or signing fails.
+// Ten fixed inputs describe one signed authorization and its requirements. Grouping them into a
+// struct adds no clarity.
+#[allow(clippy::too_many_arguments)]
+fn signed_payload_named(
+    signer: &PrivateKeySigner,
+    from: &str,
+    value: &str,
+    valid_after: &str,
+    valid_before: &str,
+    nonce: &str,
+    domain_name: &str,
+    chain_id: u64,
+    contract: &str,
+    accepted: Accepted,
+) -> Result<PaymentObject, GenError> {
     let auth = AuthFields {
         from: signer.address(),
         to: PAY_TO
@@ -238,7 +335,7 @@ fn signed_payload(
             .parse::<B256>()
             .map_err(|_| GenError::Nonce(nonce.to_string()))?,
     };
-    let signature = sign_under(signer, &auth, chain_id, contract)?;
+    let signature = sign_under_named(signer, &auth, domain_name, chain_id, contract)?;
     Ok(PaymentObject {
         x402_version: X402_VERSION,
         payload: ExactPayload {
@@ -253,7 +350,7 @@ fn signed_payload(
             signature: sig_to_wire(&signature),
         },
         resource: resource(),
-        accepted: accepted(),
+        accepted,
     })
 }
 
@@ -308,7 +405,7 @@ fn vector(
     )
 }
 
-/// The baseline accepted requirements, shared by every vector.
+/// The baseline accepted requirements, shared by every Base Sepolia vector.
 fn accepted() -> Accepted {
     Accepted {
         scheme: "exact".to_string(),
@@ -319,6 +416,22 @@ fn accepted() -> Accepted {
         max_timeout_seconds: MAX_TIMEOUT_SECONDS,
         extra: Extra {
             name: TOKEN_NAME.to_string(),
+            version: TOKEN_VERSION.to_string(),
+        },
+    }
+}
+
+/// The Arc mainnet USDC requirements, carrying the token's on-chain domain name and version.
+fn accepted_arc() -> Accepted {
+    Accepted {
+        scheme: "exact".to_string(),
+        network: NETWORK_ARC.to_string(),
+        amount: VALUE.to_string(),
+        asset: ASSET_ARC_USDC.to_string(),
+        pay_to: PAY_TO.to_string(),
+        max_timeout_seconds: MAX_TIMEOUT_SECONDS,
+        extra: Extra {
+            name: TOKEN_NAME_ARC.to_string(),
             version: TOKEN_VERSION.to_string(),
         },
     }

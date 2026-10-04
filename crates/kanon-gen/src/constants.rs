@@ -15,6 +15,9 @@ pub const ASSET_BASE_SEPOLIA_USDC: &str = "0x036CbD53842c5426634e7929541eC2318f3
 /// Base mainnet USDC, used as the wrong contract for the replay vectors.
 pub const ASSET_BASE_MAINNET_USDC: &str = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
+/// Arc mainnet USDC, the token contract for the domain name mismatch vector.
+pub const ASSET_ARC_USDC: &str = "0x3600000000000000000000000000000000000000";
+
 /// The fixed 32 byte authorization nonce, the same across the baseline derived vectors.
 pub const NONCE: &str = "0xf3746613c2d920b5fdabc0856f2aeb2d4f88ee6037b8cc5d04a71a4462f13480";
 
@@ -30,17 +33,27 @@ pub const NONCE_NOT_YET_VALID: &str =
 pub const NONCE_AMOUNT_INSUFFICIENT: &str =
     "0x0303030303030303030303030303030303030303030303030303030303030303";
 
+/// Distinct fixed nonce for the domain name mismatch vector.
+pub const NONCE_DOMAIN_NAME_MISMATCH: &str =
+    "0x0404040404040404040404040404040404040404040404040404040404040404";
+
 /// The CAIP-2 target network, Base Sepolia.
 pub const NETWORK_BASE_SEPOLIA: &str = "eip155:84532";
 
 /// The CAIP-2 Base mainnet network, the wrong target for the network mismatch vector.
 pub const NETWORK_BASE_MAINNET: &str = "eip155:8453";
 
+/// The CAIP-2 Arc mainnet network, the target of the domain name mismatch vector.
+pub const NETWORK_ARC: &str = "eip155:5042";
+
 /// The Base Sepolia chain id.
 pub const CHAIN_BASE_SEPOLIA: u64 = 84532;
 
 /// The Base mainnet chain id, used by the cross chain replay vector.
 pub const CHAIN_BASE_MAINNET: u64 = 8453;
+
+/// The Arc mainnet chain id.
+pub const CHAIN_ARC: u64 = 5042;
 
 /// The transfer value and the required amount, equal in the baseline.
 pub const VALUE: &str = "10000";
@@ -68,6 +81,12 @@ pub const VERIFY_EXPIRED: i64 = 1_740_672_200;
 
 /// The EIP-712 domain name carried in the requirements extra field.
 pub const TOKEN_NAME: &str = "USDC";
+
+/// The EIP-712 domain name of Arc mainnet USDC, as returned by its name() on chain.
+pub const TOKEN_NAME_ARC: &str = "USDC";
+
+/// The EIP-712 domain name of Base mainnet USDC, as returned by its name() on chain.
+pub const TOKEN_NAME_BASE_MAINNET: &str = "USD Coin";
 
 /// The EIP-712 domain version carried in the requirements extra field.
 pub const TOKEN_VERSION: &str = "2";

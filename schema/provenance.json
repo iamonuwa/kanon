@@ -27,6 +27,14 @@
         "x402-evm-eip3009-nonce-replay-001"
       ]
     },
+    "CWE-347": {
+      "type": "CWE",
+      "url": "https://cwe.mitre.org/data/definitions/347.html",
+      "note": "Improper Verification of Cryptographic Signature",
+      "vectors": [
+        "x402-evm-eip3009-domain-name-mismatch-001"
+      ]
+    },
     "EIP-2": {
       "type": "EIP",
       "url": "https://eips.ethereum.org/EIPS/eip-2",
@@ -51,6 +59,7 @@
         "x402-evm-eip3009-amount-insufficient-001",
         "x402-evm-eip3009-cross-chain-replay-001",
         "x402-evm-eip3009-cross-contract-replay-001",
+        "x402-evm-eip3009-domain-name-mismatch-001",
         "x402-evm-eip3009-expired-001",
         "x402-evm-eip3009-nonce-replay-001",
         "x402-evm-eip3009-not-yet-valid-001",
@@ -64,6 +73,7 @@
       "vectors": [
         "x402-evm-eip3009-cross-chain-replay-001",
         "x402-evm-eip3009-cross-contract-replay-001",
+        "x402-evm-eip3009-domain-name-mismatch-001",
         "x402-evm-eip3009-sig-malleable-high-s-001",
         "x402-evm-eip3009-valid-baseline-001"
       ]
