@@ -6,6 +6,19 @@ and any change to a reason code is a breaking change that requires a version bum
 
 Versions tagged `corpus-vN.N.N` mark frozen, citable states of the corpus.
 
+## [Unreleased]
+
+### Corpus
+- New vector `x402-evm-eip3009-domain-name-mismatch-001`: an authorization for Arc mainnet USDC
+  (`eip155:5042`, `0x3600000000000000000000000000000000000000`) signed under the EIP-712 domain
+  name `"USD Coin"` while the contract's on-chain `name()` is `"USDC"`. Expected verdict
+  `SIGNER_MISMATCH`. The token values were read on chain on 2026-10-03; `eip712Domain()` reverts
+  on that contract, so the name comes from `name()` and the version from `version()` (`"2"`).
+- `schema/provenance.json` adds the `CWE-347` source and lists the new vector under `EIP-712` and
+  `EIP-3009`.
+- No existing vector changed. The vector format stays at 3.0.0 and the reason-code registry at
+  2.0.0.
+
 ## [corpus-v2.0.0] - 2026-10-03
 
 Ships vector format 3.0.0 with reason-code registry 2.0.0. The corpus release version and the
