@@ -6,7 +6,7 @@ and any change to a reason code is a breaking change that requires a version bum
 
 Versions tagged `corpus-vN.N.N` mark frozen, citable states of the corpus.
 
-## [Unreleased]
+## [corpus-v2.1.0] - 2026-10-18
 
 ### Corpus
 - New vector `x402-evm-eip3009-domain-name-mismatch-001`: an authorization for Arc mainnet USDC
@@ -84,5 +84,6 @@ First frozen reference corpus for x402 v2 `exact`-scheme EVM mandates settled vi
   the signer, giving cross-implementation evidence that each vector's signature is what its
   reason code claims. It runs in CI on every change.
 
+[corpus-v2.1.0]: https://github.com/iamonuwa/kanon/releases/tag/corpus-v2.1.0
 [corpus-v2.0.0]: https://github.com/iamonuwa/kanon/releases/tag/corpus-v2.0.0
 [corpus-v1.0.0]: https://github.com/iamonuwa/kanon/releases/tag/corpus-v1.0.0
