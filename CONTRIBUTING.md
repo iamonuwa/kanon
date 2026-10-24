@@ -24,7 +24,7 @@ These are not style preferences. They protect the one thing that makes a conform
 Every vector must satisfy all of the following. A vector that fails any of these will not be
 merged.
 
-- **Provenance.** The `provenance` array names at least one real source: an EIP, a CWE, a spec clause, or a paper. No vector exists "because we said so." Reject vague provenance like "best practice."
+- **Provenance.** The `provenance` array names at least one real source: an EIP, a CVE, a CWE, a spec clause, or a paper. No vector exists "because we said so." Reject vague provenance like "best practice."
 - **Schema-valid.** The vector validates against `schema/vector.schema.json`.
 - **Registry reason code.** `expected.reason_code` is a code defined in `schema/reason-codes.md`. Introducing a new code is a separate change to the registry with its own version bump, and the code must be one a stateless verifier can actually return (see SPEC.md on detectability). A reason code that a conformant verifier cannot distinguish from another is not a valid code.
 - **Correct for the right reason.** A negative vector must fail for the reason it claims, and for that reason only. The declared verdict must be the first failing check in th normative check order. A vector that rejects for an incidental reason is a bug, not a vector.
