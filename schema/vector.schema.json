@@ -53,7 +53,7 @@
     },
     "provenance": {
       "type": "array",
-      "description": "The sources the vector derives from: EIP, CWE, spec clause, or paper. At least one.",
+      "description": "The sources the vector derives from: EIP, CVE, CWE, spec clause, or paper. At least one.",
       "minItems": 1,
       "items": {
         "type": "string",
