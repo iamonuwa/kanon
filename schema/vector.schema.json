@@ -134,7 +134,7 @@
         },
         "seen_nonces": {
           "type": "array",
-          "description": "Nonces already consumed or settled before this verification.",
+          "description": "Nonces already consumed or settled by input.payload.authorization.from on input.accepted.asset before this verification.",
           "items": {
             "type": "string",
             "pattern": "^0x[0-9a-fA-F]{64}$"
