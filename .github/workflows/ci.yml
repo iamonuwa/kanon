@@ -44,7 +44,7 @@ jobs:
           toolchain: "1.92"
           components: rustfmt, clippy
       - name: Cache cargo build
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: Format
         run: cargo fmt --all --check
       # --locked fails the build if Cargo.lock is out of date with Cargo.toml.
@@ -68,7 +68,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install cargo-audit (prebuilt)
-        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
           tool: cargo-audit
       # Honors .cargo/audit.toml: each accepted advisory is ignored there with its justification,
@@ -85,7 +85,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       - name: Install dependencies (pinned)
