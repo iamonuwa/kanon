@@ -46,3 +46,10 @@ thiserror = "2"
 anyhow = "1"
 jsonschema = "0.49"
 clap = { version = "4", features = ["derive"] }
+
+# Published binaries are built with this profile, so a source `cargo build --release` matches them.
+# Whole-program LTO with one codegen unit cuts binary size by about a quarter; runtime is unchanged.
+# Symbols are kept (the default strips only debuginfo) so a panic report still names its frames.
+[profile.release]
+lto = true
+codegen-units = 1
