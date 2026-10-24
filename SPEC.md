@@ -209,6 +209,10 @@ The corpus deliberately does **not** test checks that depend on non-deterministi
 
 Kanon checks the cryptographic correctness of signed mandates, a layer distinct from canonicalization. Signed artifacts are treated as opaque byte sequences: the verifier reconstructs the EIP-712 digest from the vector's structured fields and never canonicalizes the JSON a mandate arrived in. JSON Canonicalization Scheme ([RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)) is the reference for that adjacent layer. It is cited here to mark where this project's lane ends and the canonicalization layer begins; Kanon does not implement or depend on it.
 
+### Out of scope: resource binding
+
+`resource` is not part of the signed authorization: EIP-3009 signs `from`, `to`, `value`, `validAfter`, `validBefore`, and `nonce`, and nothing else in the payment object signs `resource`. Binding a payment to the resource it unlocks, so that paying for one resource cannot grant access to another, is the resource server's job, done against the request it actually priced and settled ([x402-foundation/x402#3838](https://github.com/x402-foundation/x402/issues/3838)). A verifier of the mandate cannot detect a substituted `resource`, so the corpus does not encode it, and a conformant verifier MUST NOT let `resource` affect its verdict. This boundary follows from what is signed: if a signed artifact under test ever binds the resource, checking that binding becomes in scope as its own extension (section 9).
+
 ---
 
 ## 6. Encoding and determinism rules
