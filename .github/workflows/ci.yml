@@ -71,8 +71,8 @@ jobs:
         uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
           tool: cargo-audit
-      # Honors .cargo/audit.toml: the three accepted unmaintained advisories are ignored, while any
-      # new or vulnerable advisory is an un-ignored warning and fails the job.
+      # Honors .cargo/audit.toml: each accepted advisory is ignored there with its justification,
+      # while any other advisory is an un-ignored warning and fails the job.
       - name: Audit
         run: cargo audit --deny warnings
 
