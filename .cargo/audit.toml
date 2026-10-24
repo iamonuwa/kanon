@@ -3,4 +3,5 @@ ignore = [
     "RUSTSEC-2024-0388", # derivative: unmaintained, build-time only via alloy
     "RUSTSEC-2024-0436", # paste: unmaintained, build-time only via alloy
     "RUSTSEC-2026-0173", # proc-macro-error2: unmaintained, build-time only via alloy
+    "RUSTSEC-2026-0387", # crypto-bigint 0.5 timing: verifier handles only public inputs, signing uses public test keys; blocked on k256 0.14 via alloy
 ]
