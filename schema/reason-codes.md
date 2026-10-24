@@ -17,7 +17,7 @@ Each code below states what makes it detectable by a stateless, offline verifier
 - `SIGNER_MISMATCH`: The signature does not recover to `input.payload.authorization.from` when the EIP-712 digest is reconstructed from the expected domain (chainId from `input.accepted.network`, verifying contract `input.accepted.asset`, name and version from `input.accepted.extra`) and the authorization struct. This one cause covers cross chain replay, cross contract replay, and tampering of any signed field, which are cryptographically indistinguishable at recovery. The specific attack is named in the vector's `encodes` field.
 - `NOT_YET_VALID`: `context.verification_time` is before `input.payload.authorization.validAfter`. Requires `context.verification_time`.
 - `EXPIRED`: `context.verification_time` is at or after `input.payload.authorization.validBefore`. Requires `context.verification_time`.
-- `NONCE_REPLAY`: `input.payload.authorization.nonce` is present in `context.seen_nonces`. Requires `context.seen_nonces`. Models a nonce already consumed or settled.
+- `NONCE_REPLAY`: `input.payload.authorization.nonce` is present in `context.seen_nonces`. Requires `context.seen_nonces`. Models a nonce already consumed or settled by `authorization.from` on `input.accepted.asset` (SPEC.md §5).
 - `AMOUNT_INSUFFICIENT`: The signature is valid and recovers correctly, but `input.payload.authorization.value` is less than `input.accepted.amount`. The mandate is authentic, it just underpays. Forging the amount instead breaks the signature and yields `SIGNER_MISMATCH`.
 - `VALID`: All checks pass. Positive vectors only.
 
