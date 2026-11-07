@@ -14,7 +14,8 @@ use crate::constants::{
     NONCE_DOMAIN_NAME_MISMATCH, NONCE_NETWORK_MISMATCH, NONCE_NOT_YET_VALID, NOT_YET_VALID_AFTER,
     NOT_YET_VALID_BEFORE, PAYER_KEY, PAY_TO, RESOURCE, SCHEMA_VERSION, TOKEN_NAME, TOKEN_NAME_ARC,
     TOKEN_NAME_BASE_MAINNET, TOKEN_VERSION, UNDERPAY_VALUE, VALID_AFTER, VALID_BEFORE, VALUE,
-    VERIFY_EXPIRED, VERIFY_INSIDE, X402_VERSION,
+    VERIFY_AT_VALID_AFTER, VERIFY_AT_VALID_BEFORE, VERIFY_EXPIRED, VERIFY_INSIDE,
+    VERIFY_LAST_VALID, X402_VERSION,
 };
 use crate::eip712::{self, AuthFields, DomainFields};
 use crate::error::GenError;
@@ -95,6 +96,39 @@ pub fn build_corpus() -> Result<Vec<Vector>, GenError> {
              at or after validBefore, so the authorization is expired.",
             payload(sig_to_wire(&baseline_sig), &from),
             Some(ctx_at(VERIFY_EXPIRED)),
+            reject(ReasonCode::Expired),
+        ),
+        vector(
+            "x402-evm-eip3009-not-yet-valid-at-valid-after-001",
+            "Not yet valid at the boundary: verification occurs exactly at validAfter.",
+            &["EIP-3009"],
+            "The baseline signature is unchanged. Verification occurs at the validAfter second. \
+             EIP-3009 requires the current time to be strictly greater than validAfter, so the \
+             authorization is not yet valid at that second.",
+            payload(sig_to_wire(&baseline_sig), &from),
+            Some(ctx_at(VERIFY_AT_VALID_AFTER)),
+            reject(ReasonCode::NotYetValid),
+        ),
+        vector(
+            "x402-evm-eip3009-valid-last-second-001",
+            "Valid at the last second: verification occurs one second before validBefore.",
+            &["EIP-3009"],
+            "The baseline signature is unchanged. Verification occurs at validBefore minus one \
+             second, the latest instant inside the validity window, so the authorization is \
+             valid.",
+            payload(sig_to_wire(&baseline_sig), &from),
+            Some(ctx_at(VERIFY_LAST_VALID)),
+            accept(),
+        ),
+        vector(
+            "x402-evm-eip3009-expired-at-valid-before-001",
+            "Expired at the boundary: verification occurs exactly at validBefore.",
+            &["EIP-3009"],
+            "The baseline signature is unchanged. Verification occurs at the validBefore second. \
+             EIP-3009 requires the current time to be strictly less than validBefore, so the \
+             authorization is expired at that second.",
+            payload(sig_to_wire(&baseline_sig), &from),
+            Some(ctx_at(VERIFY_AT_VALID_BEFORE)),
             reject(ReasonCode::Expired),
         ),
         vector(

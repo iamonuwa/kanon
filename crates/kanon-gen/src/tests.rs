@@ -64,13 +64,13 @@ fn flip_is_an_involution() {
 }
 
 #[test]
-fn corpus_has_ten_unique_vectors() {
+fn corpus_has_thirteen_unique_vectors() {
     let corpus = build_corpus().unwrap();
-    assert_eq!(corpus.len(), 10);
+    assert_eq!(corpus.len(), 13);
     let mut ids: Vec<&str> = corpus.iter().map(|v| v.id.as_str()).collect();
     ids.sort_unstable();
     ids.dedup();
-    assert_eq!(ids.len(), 10);
+    assert_eq!(ids.len(), 13);
 }
 
 #[test]
