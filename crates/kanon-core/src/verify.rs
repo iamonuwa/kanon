@@ -79,7 +79,8 @@ pub fn verify(
     // Temporal checks: only when a verification time is injected.
     if let Some(time) = ctx.verification_time {
         let now = U256::from(u64::try_from(time).map_err(|_| VerifyError::NegativeTime(time))?);
-        if now < valid_after {
+        // ERC-3009 requires `now > validAfter`, so the validAfter second itself is not yet valid.
+        if now <= valid_after {
             return Ok(reject(ReasonCode::NotYetValid));
         }
         if now >= valid_before {

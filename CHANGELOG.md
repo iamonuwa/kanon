@@ -6,6 +6,19 @@ and any change to a reason code is a breaking change that requires a version bum
 
 Versions tagged `corpus-vN.N.N` mark frozen, citable states of the corpus.
 
+## [Unreleased]
+
+### Breaking
+- Reason-code registry bumped from 2.0.0 to 3.0.0. `NOT_YET_VALID` now applies when
+  `context.verification_time` equals `authorization.validAfter`, matching the ERC-3009 rule
+  `require(now > validAfter)`. Registry 2.0.0 returned `VALID` at that second, so a verifier
+  conformant to 2.0.0 can fail a vector at the boundary. Reported in #54.
+- `EXPIRED` is unchanged: `verification_time` at or after `validBefore` was already expired.
+- The vector format stays at 3.0.0; no input shape changed.
+
+### Verification
+- The reference verifier rejects `verification_time <= validAfter` as `NOT_YET_VALID`.
+
 ## [corpus-v2.1.0] - 2026-10-18
 
 ### Corpus
