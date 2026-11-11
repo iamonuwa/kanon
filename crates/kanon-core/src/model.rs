@@ -149,7 +149,7 @@ pub enum ReasonCode {
     SigMalleable,
     /// The signature does not recover to the declared signer.
     SignerMismatch,
-    /// Verification occurs before the authorization validAfter.
+    /// Verification occurs at or before the authorization validAfter.
     NotYetValid,
     /// Verification occurs at or after the authorization validBefore.
     Expired,
