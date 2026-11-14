@@ -79,6 +79,16 @@ pub const UNDERPAY_VALUE: &str = "9999";
 /// A verification time at or after the validity window, for the expired vector.
 pub const VERIFY_EXPIRED: i64 = 1_740_672_200;
 
+/// A verification time equal to VALID_AFTER. EIP-3009 requires now > validAfter, so the baseline
+/// is not yet valid at this second.
+pub const VERIFY_AT_VALID_AFTER: i64 = 1_740_672_089;
+
+/// The last second before VALID_BEFORE, the latest instant at which the baseline is valid.
+pub const VERIFY_LAST_VALID: i64 = 1_740_672_153;
+
+/// A verification time equal to VALID_BEFORE, the first second at which the baseline is expired.
+pub const VERIFY_AT_VALID_BEFORE: i64 = 1_740_672_154;
+
 /// The EIP-712 domain name carried in the requirements extra field.
 pub const TOKEN_NAME: &str = "USDC";
 

@@ -61,9 +61,12 @@
         "x402-evm-eip3009-cross-contract-replay-001",
         "x402-evm-eip3009-domain-name-mismatch-001",
         "x402-evm-eip3009-expired-001",
+        "x402-evm-eip3009-expired-at-valid-before-001",
         "x402-evm-eip3009-nonce-replay-001",
         "x402-evm-eip3009-not-yet-valid-001",
-        "x402-evm-eip3009-valid-baseline-001"
+        "x402-evm-eip3009-not-yet-valid-at-valid-after-001",
+        "x402-evm-eip3009-valid-baseline-001",
+        "x402-evm-eip3009-valid-last-second-001"
       ]
     },
     "EIP-712": {
