@@ -68,7 +68,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install cargo-audit (prebuilt)
-        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-audit
       # Honors .cargo/audit.toml: each accepted advisory is ignored there with its justification,
